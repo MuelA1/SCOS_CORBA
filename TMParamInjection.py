@@ -25,25 +25,32 @@ tmInjMngr = tmInjMngr._narrow(ITM_INJ.ParamInjectMngr)
     
 # ------------------ Definition of a single parameter ---------------------
 
-# parameter name (string) 
-# example: PSS - Battery Subsubsystem _name = "PBTSCC03"
-# YM: System Manager, PSS Subsystem Mode 
-_name = "YMTMD107"
-
-# switch wether the injected value is raw or engineering (boolean)
-# only raw values are currently supported
-_isEngValue = False
-
-# value (IBASE.Variant) (Syntax: IBASE.Variant('S',"Default"))  
-_value = IBASE.Variant('S',"Off")
-
-# create parameter structure  
-_singleParam = ITM.InjectParam(_name,_isEngValue,_value)
-
+try:
+    # parameter name (string) 
+    # example: PSS - Battery Subsubsystem _name = "PBTSCC03"
+    # YM: System Manager, PSS Subsystem Mode 
+    _name = "PBTSTC00"
+    
+    # switch wether the injected value is raw or engineering (boolean)
+    # only raw values are currently supported
+    _isEngValue = False
+    
+    # value (IBASE.Variant) (Syntax: IBASE.Variant('S',"Default"))  
+    _value = IBASE.Variant('F',1.0)
+    
+    # create parameter structure  
+    _singleParam = ITM.InjectParam(_name,_isEngValue,_value)
+    
 # ---------------------- Inject parameter ---------------------------------
-
-# inject single parameter with defaults
-# Error: IBASE.NotFound() - parameter name is not properly configured in the MIB
-tmInjMngr.injectParameterWithDefaults(_singleParam,"sourceID")
+    
+    # inject single parameter with defaults
+    # Error: IBASE.NotFound() - parameter name is not properly configured in the MIB
+    tmInjMngr.injectParameterWithDefaults(_singleParam,"MeinInjektor")
    
-sys.exit(0)   
+except Exception as e:
+    print ('\033[1;37;41m Exited with exception: ', e)
+    sys.exit(1)
+    
+else:
+    print ('\033[1;37;42m Exited without exception')
+    sys.exit(0) 
