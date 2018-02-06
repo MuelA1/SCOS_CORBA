@@ -7,7 +7,7 @@ Command History Data Provision Services
 """
 
 import sys
-import CORBA, IBASE_IF, ITC, ITC_PRO
+import CORBA, IBASE_IF, ITC, ITC_PRO, ITC_PRO__POA
 import omniORB
 
 orb = CORBA.ORB_init()
@@ -32,6 +32,12 @@ cmdHistory = tcServer.m_commandMngr
 poa = orb.resolve_initial_references("RootPOA")
 # string = Repository ID, identifies IDL Interface of the object
 cmdMngrView = poa.create_reference("IDL:ITC_PRO/CommandMngrView:1.0")
+
+class testView5(ITC_PRO__POA.CommandMngrView):
+    def __init__(self):
+        print('')
+    def notifyCommands(self,data):
+        print('Hat geklappt')
 
 # ------------------------ Definition of a Command Filter ------------------
 # only those commands, which match the filter, are sent to the client    
@@ -71,6 +77,11 @@ try:
 # ----------------------------- get Data ------------------------------------
  
     data = cmdHistory.getFullData(viewKey)
+
+    test5 = testView5()
+    poa.activate_object(test5)
+    reff = poa.servant_to_reference(test5)
+    cmdHistory.registerCommands(reff,commandFilter,transmissionFilter)
     
 except Exception as e:
     print ('\033[1;37;41m Exited with exception: ', e)

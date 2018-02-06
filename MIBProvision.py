@@ -14,7 +14,7 @@ import CORBA, IMIB, IMIB_PRO
 
 orb = CORBA.ORB_init()
 # get MIB Manager reference
-mibMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#MIB_PRO_001")
+mibMngr = orb.string_to_object("corbaname::192.168.56.102:20001/NameService#MIB_PRO_001")
                              
 if mibMngr is None:
 	print("Failed to get mibMngr reference")
@@ -34,13 +34,14 @@ try:
     
     # list with names of definition entries
     tcNamesList = commandDefIterator.getNames()
-    print(tcNamesList)
-    print('\n')
+    #print(tcNamesList)
+    #print('\n')
     
     # get definition of one command 
-    commandDef = commandDefIterator.getDef("PING")
-    print(commandDef)
-    print('\n')
+    commandDef = commandDefIterator.getDefsAsTable(tcNamesList,IMIB.PARAM_DESCRIPTION)
+    for defs in commandDef[0].m_values:
+       print(defs)
+       #print('\n')
     
     # get total number of entries
     commandCount = commandDefIterator.getCount()

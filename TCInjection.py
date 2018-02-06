@@ -8,12 +8,24 @@ Access to SCOS-2000 commanding system
 """
 
 import sys
-import CORBA, IBASE, ITC, ITC_INJ
+import CORBA, IBASE, ITC, ITC_INJ, ITC_INJ__POA
 import PortableServer
- 
+
+class testView(ITC_INJ__POA.CommandInjectMngrView):
+    def __init__(self):
+        print('View erstellt')
+    def ping(self):
+        print('Pong')
+    def updateRequestStatus(self,status):
+        print('Request Status Update:')
+        print(status)
+    def updateSystemStatus(self,status):
+        print('System Status Update')
+        print(status)
+
 orb = CORBA.ORB_init()
 # get Telecommand Parameter Injection server manager
-tcInjServerMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#TC_INJ_002")
+tcInjServerMngr = orb.string_to_object("corbaname::192.168.56.102:20001/NameService#TC_INJ_002")
                        
 if tcInjServerMngr is None:
     print("Failed to get tcInjServerMngr reference")
@@ -31,8 +43,12 @@ tcInjServerMngr = tcInjServerMngr._narrow(ITC_INJ.TCinjectServerMngr)
 poa = orb.resolve_initial_references("RootPOA")
 # creates reference type <ITC_INJ._objref_CommandInjectMngrView object>
 # string = Repository ID, identifies IDL Interface of the object
-cmdInjMngrView = poa.create_reference("IDL:ITC_INJ/CommandInjectMngrView:1.0")
+#cmdInjMngrView = poa.create_reference("IDL:ITC_INJ/CommandInjectMngrView:1.0")
 # object still has to be created
+
+testViewObject = testView()
+print(poa.activate_object(testViewObject))
+cmdInjMngrView = poa.servant_to_reference(testViewObject)
 
 # get Command Injection Interface from server
 # register Command Injection Manager View Interface here 
@@ -43,6 +59,10 @@ if cmdInjMngr is None:
     sys.exit(1)
 
 # ---------------------- Definition of Command Request Structure ------------
+
+poaManager = poa._get_the_POAManager()
+poaManager.activate()
+print('The POAManager is '+str(poaManager.get_state()))
 
 try:
 	# empty time, command is not time tagged
@@ -65,22 +85,24 @@ try:
     cmdRequest = ITC_INJ.CommandRequest(_context,_destination,_mapId,_vcId,_cmdName,_cmdParameters,_paramSets,_info,_ilockType,_ilockStageType,_additionalInfo,_tcRequestID)
 
 # --------------------------- Inject Command --------------------------------
-
+    print('Injecting Command')
     injRequestID = cmdInjMngr.injectCmd(cmdRequest)
- 
+    print('ID is '+str(injRequestID)) 
 # ------------------------ get Command Callback -----------------------------
- 
-    _request_id = injRequestID
-    _multiplexer_id = 0
-    _stage = ITC.PTV_STATIC
-    _stage_status = ITC.PASSED
-    _completed_flag = True
-    _updateTime = _emptyTime
-    _tcRequestID = 0
+
+    orb.run()
+
+    #_request_id = injRequestID
+    #_multiplexer_id = 0
+    #_stage = ITC.PTV_STATIC
+    #_stage_status = ITC.PASSED
+    #_completed_flag = True
+    #_updateTime = _emptyTime
+    #_tcRequestID = 0
     
-    status = ITC_INJ.NotificationInfo(_request_id,_multiplexer_id,_stage,_stage_status,_completed_flag,_updateTime,_tcRequestID)
+    #status = ITC_INJ.NotificationInfo(_request_id,_multiplexer_id,_stage,_stage_status,_completed_flag,_updateTime,_tcRequestID)
     
-    cmdCallback = cmdInjMngrView.updateRequestStatus(status)    
+    #cmdCallback = cmdInjMngrView.updateRequestStatus(status)    
     
 except Exception as e:
     print ('\033[1;37;41m Exited with exception: ', e)
