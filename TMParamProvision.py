@@ -2,18 +2,18 @@
 # -*- coding: utf-8 -*-
 """
 
-Command History Data Provision Services 
+Access to telemetry parameters
 
 """
 
 import sys
-import CORBA, ITC, ITC_PRO, ITC_PRO__POA, ICLOCK, IBASE, IBASE_IF__POA
+import CORBA, ITM_PRO, ITM_PRO__POA, IMIB, ICLOCK, IBASE_IF__POA, IBASE
 
 #==============================================================================
 #                           Implement client side view
 #==============================================================================
 
-try:
+try:    
     class View(IBASE_IF__POA.View):
         def __init__(self):
             print("Init...")
@@ -21,43 +21,44 @@ try:
             print("notifyOverflow: buffer overflow on the server side")            
         def owNotifyOverflow(self):    
             print("owNotifyOverflow: buffer overflow on the server side")
-            
-    class CommandMngrView(View,ITC_PRO__POA.CommandMngrView):
+
+    class ParameterView(View,ITM_PRO__POA.ParameterView):
         def __init__(self):
             print('Creating View object...')
-        def notifyCommands(self,data):
-            print('Command Values: ')
-            print(data)
+        def notifyParameter(self,key,value):
+            print("\nView key is: " + str(key))
+            print('Parameter Values: ')
+            print(value)
     
-    mngrViewObject = CommandMngrView()
-   
+    paramViewObject = ParameterView()
+
 #==============================================================================
-#                          Get TC Server Manager reference 
+#                         Get TM Server Manager reference 
 #==============================================================================
     
     orb = CORBA.ORB_init()
-    tcServerMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#TC_PRO_002")                            
-    # in case tcServerMngr is a generic CORBA.Object, for safety purposes    
-    tcServerMngr = tcServerMngr._narrow(ITC_PRO.TCserverMngr)
+    tmServerMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#TM_PRO_001")                                   
+    # in case tmServerMngr is a generic CORBA.Object, for safety purposes    
+    tmServerMngr = tmServerMngr._narrow(ITM_PRO.TMserverMngr)
 
 #==============================================================================
-#                               Activate View object 
+#                              Activate View object 
 #==============================================================================
-   
+
     # creates omniORB.PortableServer.POA object with persistent object policies
     poa = orb.resolve_initial_references("omniINSPOA")
-    poaId = "MyTCProObjectId"
-    poa.activate_object_with_id(poaId,mngrViewObject)
-    cmdMngrView = poa.servant_to_reference(mngrViewObject)
+    poaId = "MyTMParamObjectId"
+    poa.activate_object_with_id(poaId,paramViewObject)
+    paramView = poa.servant_to_reference(paramViewObject)
     
     # activate the poa, that incoming requests are served
     poaManager = poa._get_the_POAManager()
     poaManager.activate()
 
 #==============================================================================
-#                       Get and initialize TC Timing Server 
+#                        Get and initialize TM Timing Server 
 #==============================================================================
-
+    
     # get user input
     serverTypeInput = input("Please type 'L' for Live data provision or 'H' for History data provision: ")
     if serverTypeInput in ['L','l']:
@@ -72,69 +73,43 @@ try:
         
     # 1 --> shared realtime server, shared between clients 
     # 0 --> private retrieval server, for history data  
-    tcServer = tcServerMngr.getTCserver(serverType)
+    tmServer = tmServerMngr.getTMserver(serverType)
     
     if serverType == 0:
     
         # no access from other clients, then state modifying is possible
-        tcServer.lock(cmdMngrView)
+        tmServer.lock(paramView)
         
-        # get TC History Time Server Manager
-        timeMngr = tcServer.m_timeMngr
+        # get TM Parameter Time Server Manager
+        timeMngr = tmServer.m_timeMngr
         
         # retrieval backward mode (real time mode, history stop mode and retrieval forward mode also possible)
-        timeMngr.setMode(ICLOCK.HISTORY_FORWARD)
+        timeMngr.setMode(ICLOCK.HISTORY_BACKWARD)
         print('Time mode is: ' + timeMngr.getMode())
         
         # clock of the server will be set to the largest packet time <= sampleTime
-        """ 08.02.2018 (039 Tage) 16:00 1518105600 --> (1518105690,384309,False): 16:01:30 (UTC0) """
-        timeMngr.setSampleTime(IBASE.Time(1518105600,0,False))
+        """ 1511367738: 22.11.2017 16:22:18 (UTC0) """
+        timeMngr.setSampleTime(IBASE.Time(1511367738,0,False))
         print('Sample time is: ' + str(timeMngr.getSampleTime()))
         
-        # explicit stepping (forward/backward) in retrieval mode
         #timeMngr.step()
-        #print('State after manipulating the time context: ' + str(timeMngr.step()))
+        #print('State after manipulating the time context: ' + str(timeMngr.step()) + "\n")
 
 #==============================================================================
-#                          Definition of a Command Filter  
-#==============================================================================       
+#                    get single TM Parameter Data Interface 
+#==============================================================================
+        
+    # get single TM Parameter Data Provision Manager
+    paramMngr = tmServer.m_parameterMngr
     
-    # only those commands, which match the filter, are sent to the client 
-    _releaseTimeOrder = True
-    _enableVerifyDetails = False     
-    _enableParameters = True
-    _enableRawData = False
-    _name = "PING"
-    _sourceName = "maestria-scos"
-    _sourceType = ITC.EXT_SOURCE
-    _subsystem = "DEFAULT"
-    _sequenceName = ""
-#    _verifyDetails = ITC.VerifyDetail('s',0x0002)
-    _verifyDetails = []
-    
-    commandFilter = ITC.CommandFilter(_releaseTimeOrder,_enableVerifyDetails,_enableParameters,_enableRawData,_name,_sourceName,_sourceType,_subsystem,_sequenceName,_verifyDetails)
+    paramIF = paramMngr.getParameter('PBTSTC00',paramView)
 
 #==============================================================================
-#                           Definition of a Transmission Filter 
+#                             Register Parameter 
 #==============================================================================
     
-    _transmitData = True
-    _transmitPacketHeader = True
-    _transmitPacketHeaderRawData = True
-    _transmitPacketBodyRawData = True
-    
-    transmissionFilter = ITC.TransmissionFilter(_transmitData,_transmitPacketHeader,_transmitPacketHeaderRawData,_transmitPacketBodyRawData)
+    viewKey = paramIF.registerParam(paramView,True,IMIB.PARAM_RAW_VALUE,False)
 
-#==============================================================================
-#                              Register at the CommandMngr 
-#==============================================================================
-
-    # server returns Interface CommandMngr, for command history data access
-    cmdHistoryMngr = tcServer.m_commandMngr
-       
-    # register client for command history data 
-    viewKey = cmdHistoryMngr.registerCommands(cmdMngrView,commandFilter,transmissionFilter)
- 
     if viewKey == 0:
         print("\033[1;31;48mRegistration not successful: Invalid view key... \033[0m")
         sys.exit(1)
@@ -143,32 +118,32 @@ try:
          print("\033[1;32;48mRegistration successful: View key = " + str(viewKey) + "\033[0m")
 
 #==============================================================================         
-#                           Get retrieval data (private server)
+#                          Get retrieval data (private server)
 #==============================================================================
 
     if serverType == 0:
-         
-        fullData = cmdHistoryMngr.getFullData(viewKey)
-        print("Get Full Data: " + str(fullData))
-        
-        nextData = cmdHistoryMngr.getNextData(viewKey)
-        print("Get Next Data: " + str(nextData))
+        allValues = paramIF.getFullData(viewKey)
+        print(allValues)
+        print(paramIF.getOOLstate())
+        print(paramIF.getActualLowLimit())
+        print(paramIF.getActualHighLimit())
             
     if serverType == 1:
         orb.run()
-
+        
 #==============================================================================
     
 except Exception as e:
     print('\033[1;37;41m Exited with exception:', e, '\033[0m')
     if serverType == 0:
-        tcServer.unlock()
-    cmdHistoryMngr.unregisterView(viewKey)
+        tmServer.unlock()
+    paramIF.unregisterView(viewKey)
     sys.exit(1)
     
 else:
     print('\033[1;37;42m Exited without exception \033[0m')
     if serverType == 0:
-        tcServer.unlock()
-    cmdHistoryMngr.unregisterView(viewKey)
-    sys.exit(0)                        
+        tmServer.unlock()
+    paramIF.unregisterView(viewKey)
+    sys.exit(0)  
+    

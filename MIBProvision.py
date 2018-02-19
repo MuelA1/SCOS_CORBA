@@ -11,22 +11,22 @@ Sequence data, Alphanumeric Display data, Graphical Display data and Scrolling D
 
 import sys
 import CORBA, IMIB, IMIB_PRO
+   
+#==============================================================================
+#                       Get MIB Manager reference from server 
+#============================================================================== 
 
-orb = CORBA.ORB_init()
-# get MIB Manager reference
-mibMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#MIB_PRO_001")
-                             
-if mibMngr is None:
-	print("Failed to get mibMngr reference")
-	sys.exit(1)
+try:   
+    orb = CORBA.ORB_init()
+    mibMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#MIB_PRO_001")                             
+    # in case mibMngr is a generic CORBA.Object, for safety purposes    
+    mibMngr = mibMngr._narrow(IMIB_PRO.MIBmngr)
 
-# in case mibMngr is a generic CORBA.Object, for safety purposes    
-mibMngr = mibMngr._narrow(IMIB_PRO.MIBmngr)
-
-# --------------------------- TC Data ---------------------------------------
-
-try:
-    print("\033[1;34;47m TC Data \n")
+#==============================================================================
+#                                    Get TC Data 
+#==============================================================================
+    
+    print("\033[1;34;48mTC Data \n")
 
     # provides the iterator for Command data
     # access to static command data 
@@ -34,13 +34,14 @@ try:
     
     # list with names of definition entries
     tcNamesList = commandDefIterator.getNames()
-    print(tcNamesList)
-    print('\n')
+    #print(tcNamesList)
+    #print('\n')
     
     # get definition of one command 
-    commandDef = commandDefIterator.getDef("PING")
-    print(commandDef)
-    print('\n')
+    commandDef = commandDefIterator.getDefsAsTable(tcNamesList,IMIB.PARAM_DESCRIPTION)
+    for defs in commandDef[0].m_values:
+       print(defs)
+       #print('\n')
     
     # get total number of entries
     commandCount = commandDefIterator.getCount()
@@ -57,11 +58,13 @@ try:
     # PARAM_ENG_VALUE_UNIT, PARAM_SYN_VALUE_UNIT, PARAM_SOURCE_VALUE_UNIT, PARAM_DEFAULT_VALUE_UNIT
     tcDefinitionTable = commandDefIterator.getDefsAsTable(['PING'],IMIB.PARAM_DESCRIPTION)
     print(tcDefinitionTable)
-    print('\n')
+    print('\n \033[0m')
 
-# -------------------------- TM Data ----------------------------------------
-
-    print("\033[1;32;47m TM Data \n")
+#==============================================================================
+#                                 Get TM Data 
+#==============================================================================
+    
+    print("\033[1;32;48mTM Data \n")
     
     # provides the iterator for Telemetry Parameter data
     paramDefIterator = mibMngr.getParamDefIterator()
@@ -72,7 +75,8 @@ try:
     print('\n')
     
     # get Definition of one TM parameter 
-    paramDef = paramDefIterator.getDef("YYTTLE01")
+    #paramDef = paramDefIterator.getDef("YYTTLE01")
+    paramDef = paramDefIterator.getDef("PBTSTC00")
     print(paramDef)
     print('\n')
     
@@ -91,12 +95,14 @@ try:
     # PARAM_ENG_VALUE_UNIT, PARAM_SYN_VALUE_UNIT, PARAM_SOURCE_VALUE_UNIT, PARAM_DEFAULT_VALUE_UNIT
     paramDefinitionTable = paramDefIterator.getDefsAsTable(['YYTTLE01'],IMIB.PARAM_VALUE_FLAGS)
     print(paramDefinitionTable)
-    print('\n')
+    print('\n \033[0m')
+
+#==============================================================================
 
 except Exception as e:
-    print ('\033[1;37;41m Exited with exception: ', e)
+    print('\033[1;37;41m Exited with exception:', e, '\033[0m')
     sys.exit(1)
     
 else:
-    print ('\033[1;37;42m Exited without exception')
+    print('\033[1;37;42m Exited without exception \033[0m')
     sys.exit(0)

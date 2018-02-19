@@ -2,18 +2,18 @@
 # -*- coding: utf-8 -*-
 """
 
-Command History Data Provision Services 
+Access to TM Packet Data History (all packets filtered by DS and APID)
 
 """
 
 import sys
-import CORBA, ITC, ITC_PRO, ITC_PRO__POA, ICLOCK, IBASE, IBASE_IF__POA
+import CORBA, ITMP, ITMP_PRO, ITMP_PRO__POA, ICLOCK, IBASE, IBASE_IF__POA
 
 #==============================================================================
 #                           Implement client side view
 #==============================================================================
 
-try:
+try:   
     class View(IBASE_IF__POA.View):
         def __init__(self):
             print("Init...")
@@ -21,41 +21,41 @@ try:
             print("notifyOverflow: buffer overflow on the server side")            
         def owNotifyOverflow(self):    
             print("owNotifyOverflow: buffer overflow on the server side")
-            
-    class CommandMngrView(View,ITC_PRO__POA.CommandMngrView):
+       
+    class TMpacketMngrView(View,ITMP_PRO__POA.TMpacketMngrView):
         def __init__(self):
             print('Creating View object...')
-        def notifyCommands(self,data):
-            print('Command Values: ')
+        def notifyTMpackets(self,data):
+            print('TM packet values: ')
             print(data)
-    
-    mngrViewObject = CommandMngrView()
-   
+
+    mngrViewObject = TMpacketMngrView()
+
 #==============================================================================
-#                          Get TC Server Manager reference 
+#                        Get TMP Server Manager reference
 #==============================================================================
     
     orb = CORBA.ORB_init()
-    tcServerMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#TC_PRO_002")                            
-    # in case tcServerMngr is a generic CORBA.Object, for safety purposes    
-    tcServerMngr = tcServerMngr._narrow(ITC_PRO.TCserverMngr)
+    tmpServerMngr = orb.string_to_object("corbaname::192.168.56.101:20001/NameService#TMP_PRO_001")                                 
+    # in case tmpServerMngr is a generic CORBA.Object, for safety purposes    
+    tmpServerMngr = tmpServerMngr._narrow(ITMP_PRO.TMPserverMngr)
 
 #==============================================================================
 #                               Activate View object 
 #==============================================================================
-   
+
     # creates omniORB.PortableServer.POA object with persistent object policies
     poa = orb.resolve_initial_references("omniINSPOA")
-    poaId = "MyTCProObjectId"
+    poaId = "MyTMPViewObjectId"
     poa.activate_object_with_id(poaId,mngrViewObject)
-    cmdMngrView = poa.servant_to_reference(mngrViewObject)
+    tmpMngrView = poa.servant_to_reference(mngrViewObject)
     
     # activate the poa, that incoming requests are served
     poaManager = poa._get_the_POAManager()
     poaManager.activate()
 
 #==============================================================================
-#                       Get and initialize TC Timing Server 
+#                       Get and initialize TMP Timing Server 
 #==============================================================================
 
     # get user input
@@ -69,72 +69,70 @@ try:
     else:
         print("\033[1;31;48mInvalid input \033[0m")
         sys.exit(1)
-        
+
     # 1 --> shared realtime server, shared between clients 
     # 0 --> private retrieval server, for history data  
-    tcServer = tcServerMngr.getTCserver(serverType)
-    
+    tmpServer = tmpServerMngr.getTMPserver(serverType)
+
     if serverType == 0:
-    
+       
         # no access from other clients, then state modifying is possible
-        tcServer.lock(cmdMngrView)
+        tmpServer.lock(tmpMngrView)
         
-        # get TC History Time Server Manager
-        timeMngr = tcServer.m_timeMngr
+        # get TM Packet History Time Server Manager
+        timeMngr = tmpServer.m_timeMngr
         
-        # retrieval backward mode (real time mode, history stop mode and retrieval forward mode also possible)
+        # retrieval backward mode, real time mode, history stop mode and retrieval forward mode possible
         timeMngr.setMode(ICLOCK.HISTORY_FORWARD)
         print('Time mode is: ' + timeMngr.getMode())
         
         # clock of the server will be set to the largest packet time <= sampleTime
-        """ 08.02.2018 (039 Tage) 16:00 1518105600 --> (1518105690,384309,False): 16:01:30 (UTC0) """
-        timeMngr.setSampleTime(IBASE.Time(1518105600,0,False))
+        """ 23.11.2017 (327 Tage) 16:00 1511452800 (UTC 0) --> 1511367738: 22.11.2017 16:22:18 (UTC0)"""
+    
+        """ 1511367738: 22.11.2017 16:22:18 (UTC0) """
+        """ 1511367708: 22.11.2017 16:21:48 (UTC0) """    
+        timeMngr.setSampleTime(IBASE.Time(1511367708,0,False))
         print('Sample time is: ' + str(timeMngr.getSampleTime()))
         
-        # explicit stepping (forward/backward) in retrieval mode
+        # step to next history entry (forward/backward) in retrieval mode
         #timeMngr.step()
         #print('State after manipulating the time context: ' + str(timeMngr.step()))
+        
+        print('Packet Mode: ' + str(timeMngr.isPacketMode()))
 
+    if serverType == 1:
+        # get TM Packet History Time Server Manager
+        timeMngr = tmpServer.m_timeMngr
+        
 #==============================================================================
-#                          Definition of a Command Filter  
-#==============================================================================       
-    
-    # only those commands, which match the filter, are sent to the client 
-    _releaseTimeOrder = True
-    _enableVerifyDetails = False     
-    _enableParameters = True
-    _enableRawData = False
-    _name = "PING"
-    _sourceName = "maestria-scos"
-    _sourceType = ITC.EXT_SOURCE
-    _subsystem = "DEFAULT"
-    _sequenceName = ""
-#    _verifyDetails = ITC.VerifyDetail('s',0x0002)
-    _verifyDetails = []
-    
-    commandFilter = ITC.CommandFilter(_releaseTimeOrder,_enableVerifyDetails,_enableParameters,_enableRawData,_name,_sourceName,_sourceType,_subsystem,_sequenceName,_verifyDetails)
+#                         Definition of a TM Packet Filter  
+#============================================================================== 
 
-#==============================================================================
-#                           Definition of a Transmission Filter 
-#==============================================================================
+    # only those TM Packets, which match the filter, are sent to the client     
+    _streamIds = timeMngr.getDataStreams()
+    _apIds = [53]
     
-    _transmitData = True
-    _transmitPacketHeader = True
+    tmPacketFilter = ITMP.TMpacketFilter(_streamIds,_apIds)
+    
+#==============================================================================
+#                        Definition of a Transmission Filter 
+#==============================================================================
+
     _transmitPacketHeaderRawData = True
     _transmitPacketBodyRawData = True
+    _transmitParameters = False
     
-    transmissionFilter = ITC.TransmissionFilter(_transmitData,_transmitPacketHeader,_transmitPacketHeaderRawData,_transmitPacketBodyRawData)
+    tmTransmissionFilter = ITMP.TransmissionFilter(_transmitPacketHeaderRawData,_transmitPacketBodyRawData,_transmitParameters)
 
 #==============================================================================
-#                              Register at the CommandMngr 
+#                  Register client and filters at the TM Packet manager  
 #==============================================================================
 
-    # server returns Interface CommandMngr, for command history data access
-    cmdHistoryMngr = tcServer.m_commandMngr
-       
-    # register client for command history data 
-    viewKey = cmdHistoryMngr.registerCommands(cmdMngrView,commandFilter,transmissionFilter)
- 
+    # server returns Interface TMpacketMngr, for TM Packet history data access
+    tmpHistoryMngr = tmpServer.m_packetMngr
+
+    viewKey = tmpHistoryMngr.registerTMpackets(tmpMngrView,tmPacketFilter,tmTransmissionFilter)
+
     if viewKey == 0:
         print("\033[1;31;48mRegistration not successful: Invalid view key... \033[0m")
         sys.exit(1)
@@ -142,33 +140,36 @@ try:
     else:
          print("\033[1;32;48mRegistration successful: View key = " + str(viewKey) + "\033[0m")
 
+    # Error: Exited with exception: CORBA.MARSHAL(omniORB.MARSHAL_PassEndOfMessage, CORBA.COMPLETED_NO) 
+    # CORBA.MARSHAL: Mismatch between the IDL definition seen by client and server?
+    # Requested stream in TMP Server 2 Log, compare with history
+    
 #==============================================================================         
-#                           Get retrieval data (private server)
+#                        Get retrieval data (private server)
 #==============================================================================
 
     if serverType == 0:
-         
-        fullData = cmdHistoryMngr.getFullData(viewKey)
+        fullData = tmpHistoryMngr.getFullData(viewKey)
         print("Get Full Data: " + str(fullData))
         
-        nextData = cmdHistoryMngr.getNextData(viewKey)
+        nextData = tmpHistoryMngr.getNextData(viewKey)
         print("Get Next Data: " + str(nextData))
-            
+
     if serverType == 1:
         orb.run()
 
 #==============================================================================
-    
+
 except Exception as e:
-    print('\033[1;37;41m Exited with exception:', e, '\033[0m')
+    print('\033[1;37;41m Exited with exception:', e, '\033[0m')    
     if serverType == 0:
-        tcServer.unlock()
-    cmdHistoryMngr.unregisterView(viewKey)
+        tmpServer.unlock()
+    tmpHistoryMngr.unregisterTMpackets(viewKey)
     sys.exit(1)
     
 else:
     print('\033[1;37;42m Exited without exception \033[0m')
     if serverType == 0:
-        tcServer.unlock()
-    cmdHistoryMngr.unregisterView(viewKey)
-    sys.exit(0)                        
+        tmpServer.unlock()
+    tmpHistoryMngr.unregisterTMpackets(viewKey)
+    sys.exit(0) 
