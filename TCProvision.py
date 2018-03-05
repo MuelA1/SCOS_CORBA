@@ -8,6 +8,7 @@ Command History Data Provision Services
 
 import sys
 import CORBA, ITC, ITC_PRO, ITC_PRO__POA, ICLOCK, IBASE, IBASE_IF__POA
+import TimeModule
 
 #==============================================================================
 #                           Implement client side view
@@ -25,9 +26,20 @@ try:
     class CommandMngrView(View,ITC_PRO__POA.CommandMngrView):
         def __init__(self):
             print('Creating View object...')
+            
+            self.commandCounter = 0           
+            self.commandsList = [] 
+            
         def notifyCommands(self,data):
-            print('Command Values: ')
-            print(data)
+
+            self.commandsList.append(data)
+                       
+            print('Command Values: ' + str(data))
+            TimeModule.timestamp2SCOSdate(self.commandsList[self.commandCounter].m_commands[0].m_executionTime.m_sec, self.commandsList[self.commandCounter].m_commands[0].m_executionTime.m_micro)
+            TimeModule.timestamp2date(self.commandsList[self.commandCounter].m_commands[0].m_executionTime.m_sec, self.commandsList[self.commandCounter].m_commands[0].m_executionTime.m_micro)
+            print('\n')
+            
+            self.commandCounter = self.commandCounter + 1
     
     mngrViewObject = CommandMngrView()
    
@@ -83,13 +95,14 @@ try:
         timeMngr = tcServer.m_timeMngr
         
         # retrieval backward mode (real time mode, history stop mode and retrieval forward mode also possible)
-        timeMngr.setMode(ICLOCK.HISTORY_FORWARD)
+        timeMngr.setMode(ICLOCK.HISTORY_BACKWARD)
         print('Time mode is: ' + timeMngr.getMode())
         
-        # clock of the server will be set to the largest packet time <= sampleTime
-        """ 08.02.2018 (039 Tage) 16:00 1518105600 --> (1518105690,384309,False): 16:01:30 (UTC0) """
-        timeMngr.setSampleTime(IBASE.Time(1518105600,0,False))
-        print('Sample time is: ' + str(timeMngr.getSampleTime()))
+        scosDate = "2018.050.21.15.18.999000"
+               
+        # sample time: release time 
+        timeMngr.setSampleTime(IBASE.Time(TimeModule.scosDate2timestamp(scosDate)[0],TimeModule.scosDate2timestamp(scosDate)[1],False))
+        TimeModule.timestamp2SCOSdate(timeMngr.getSampleTime().m_sec,timeMngr.getSampleTime().m_micro)
         
         # explicit stepping (forward/backward) in retrieval mode
         #timeMngr.step()
@@ -100,14 +113,16 @@ try:
 #==============================================================================       
     
     # only those commands, which match the filter, are sent to the client 
+    
+    # !!! execution time order not possible in shared mode !!!   
     _releaseTimeOrder = True
     _enableVerifyDetails = False     
     _enableParameters = True
-    _enableRawData = False
-    _name = "PING"
-    _sourceName = "maestria-scos"
-    _sourceType = ITC.EXT_SOURCE
-    _subsystem = "DEFAULT"
+    _enableRawData = True
+    _name = ""
+    _sourceName = ""
+    _sourceType = ITC.MANUAL_STACK | ITC.AUTO_STACK | ITC.EXT_SOURCE | ITC.TC_SPACON | ITC.OBQM_DISP
+    _subsystem = ""
     _sequenceName = ""
 #    _verifyDetails = ITC.VerifyDetail('s',0x0002)
     _verifyDetails = []
@@ -146,13 +161,13 @@ try:
 #                           Get retrieval data (private server)
 #==============================================================================
 
+    # get every packet, check sample Time!
     if serverType == 0:
-         
-        fullData = cmdHistoryMngr.getFullData(viewKey)
-        print("Get Full Data: " + str(fullData))
-        
-        nextData = cmdHistoryMngr.getNextData(viewKey)
-        print("Get Next Data: " + str(nextData))
+        while timeMngr.step():
+            fullData = cmdHistoryMngr.getFullData(viewKey)
+            print("Get Full Data: " + str(fullData))
+            TimeModule.timestamp2SCOSdate(timeMngr.getSampleTime().m_sec,timeMngr.getSampleTime().m_micro)
+            print("Sample time is: " + str(timeMngr.getSampleTime()) + "\n")
             
     if serverType == 1:
         orb.run()

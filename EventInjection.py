@@ -23,13 +23,13 @@ try:
 #                       Definition of Event injection data 
 #============================================================================== 
     
-    #_id = "TPKT_OBE::10001", "N","*"...ReportID?
-    _id = "7103"
-    _message = "Srv (5,3) Medium Severity Event: FDIR marked TPSE_SUS_E faulty"
-    _application = ""
-    _workstation = "maestria-scos"
-    _scope = IEV.SYSTEM
-    _severity = IEV.ERROR
+    #_id = "ECH_SERVER::" or "CMDHmplx::" or "EVLlog::" (Application + ::)
+    _id = 'ECH_SERVER::'
+    _message = ''
+    _application = ''
+    _workstation = ''
+    _scope = IEV.LOG 
+    _severity = IEV.INFORMATION
     _dataStreamID = evInj.getDefaultDataStream()
     _spacecraft = evInj.getDefaultSpacecraftID()
 
@@ -40,7 +40,7 @@ try:
 #                                Inject Event 
 #==============================================================================
     
-    print("Injecting Event " + "'" + _id + "'" + "...")
+    print("Injecting Event '" + _id + "'...")
     evInj.injectEvent(event)
 
 #==============================================================================

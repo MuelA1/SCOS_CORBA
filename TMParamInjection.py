@@ -29,14 +29,14 @@ try:
     # parameter name (string) 
     # example: PSS - Battery Subsubsystem; _name = "PBTSCC03" or "YYTTLE01", "PBTSTC00", "XNTCAG00"
     # YM: System Manager, PSS Subsystem Mode 
-    _name = "PBTSTC00"
+    _name = "PBTPWR00"
     
     # switch wether the injected value is raw or engineering (boolean)
     # only raw values are currently supported
     _isEngValue = False
     
     # value (IBASE.Variant) (Syntax: IBASE.Variant('S',"Default")), IBASE.Variant('F',1.0)  
-    _value = IBASE.Variant('F',1.0) 
+    _value = IBASE.Variant('D',-0.37105342745780945) 
 
     # create parameter structure  
     _singleParam = ITM.InjectParam(_name,_isEngValue,_value)
@@ -47,7 +47,7 @@ try:
     
     # inject single parameter with defaults
     # Error: IBASE.NotFound() - parameter name is not properly configured in the MIB
-    print("Injecting TM parameter " + "'" + _name + "'" + "...")
+    print("Injecting TM parameter '" + _name + "'...")
     tmInjMngr.injectParameterWithDefaults(_singleParam,"MeinInjektor")
 
 #==============================================================================

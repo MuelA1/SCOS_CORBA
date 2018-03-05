@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 
-Access to Event Data (only Event Logger?)
+Access to Event Data 
 
 """
 
 import sys
 import CORBA, IEV, IEV_PRO, IEV_PRO__POA, ICLOCK, IBASE, IBASE_IF__POA
+import TimeModule
 
 #==============================================================================
 #                           Implement client side view
@@ -25,9 +26,20 @@ try:
     class EventMngrView(View,IEV_PRO__POA.EventMngrView):
         def __init__(self):
             print('Creating View object...')
+
+            self.eventCounter = 0           
+            self.eventsList = []            
+            
         def notifyEvents(self,data):
-            print('Event notification: ')
-            print(data)
+            
+            self.eventsList.append(data)
+                       
+            print('\033[0;34;48mEvent notification:\033[0m ' + str(data))
+            TimeModule.timestamp2SCOSdate(self.eventsList[self.eventCounter].m_evPktTime.m_sec,self.eventsList[self.eventCounter].m_evPktTime.m_micro)
+            TimeModule.timestamp2date(self.eventsList[self.eventCounter].m_evPktTime.m_sec,self.eventsList[self.eventCounter].m_evPktTime.m_micro)
+            print('\n')
+            
+            self.eventCounter = self.eventCounter + 1
             
     eventMngrViewObject = EventMngrView()
 
@@ -83,14 +95,16 @@ try:
         timeMngr = evServer.m_timeMngr
         
         # retrieval backward mode, real time mode, history stop mode and retrieval forward mode possible
-        timeMngr.setMode(ICLOCK.HISTORY_FORWARD)
+        timeMngr.setMode(ICLOCK.HISTORY_BACKWARD)
         print('Time mode is: ' + timeMngr.getMode())
     
-        # set specific time in Event History    
-        #timeMngr.setSampleTime(timeMngr.getUTC())
-        """ 1511365000 22.11.2017 15:36:40 (326 Tage) --> (1511365688, 695000) 22.11.2017 15:48:08 in OBEH""" 
-        timeMngr.setSampleTime(IBASE.Time(1511365000,0,False))
-        print('Sample time is: ' + str(timeMngr.getSampleTime()))
+        #scosDate = "2018.054.16.48.33.999000"
+        scosDate = "2017.326.16.11.40.999000"
+
+        # set specific time in Event History   
+        # sample time: release time 
+        timeMngr.setSampleTime(IBASE.Time(TimeModule.scosDate2timestamp(scosDate)[0],TimeModule.scosDate2timestamp(scosDate)[1],False))
+        TimeModule.timestamp2SCOSdate(timeMngr.getSampleTime().m_sec,timeMngr.getSampleTime().m_micro)
         
         # explicit stepping (forward/backward) in retrieval mode
         #timeMngr.step()
@@ -131,15 +145,15 @@ try:
 #                           Definition of an Event Filter 
 #==============================================================================
     
-    #_id = "4908"
-    _id = "1800"
-    _message = "Srv (5,1) Info Event: ACS Control Strategy Changed"
+    #_id = "ECH_SERVER::" or "CMDHmplx::" or "EVLlog::" or...
+    _id = ""
+    _message = ""
     _application = ""
-    _workstation = "maestria-scos"
-    _scope = IEV.LOG
-    _severity = IEV.INFORMATION 
+    _workstation = ""
+    _scope = IEV.SYSTEM | IEV.SOFTWARE| IEV.MIB | IEV.LOG
+    _severity = IEV.WARNING | IEV.ERROR | IEV.FATAL | IEV.INFORMATION 
     _dataStreamIDs = timeMngr.getDataStreams()
-    _spacecraft = "Flying Laptop"
+    _spacecraft = ""
 
     # only events with a configurable prefix will be processed (_id variable)        
     eventFilter = IEV.EventFilter(_id,_message,_application,_workstation,_scope,_severity,_dataStreamIDs,_spacecraft)
@@ -159,13 +173,13 @@ try:
 #                           Get retrieval data (private server)
 #==============================================================================
     
+    # get every packet, check sample Time!
     if serverType == 0:
-        
-        fullData = evHistoryMngr.getFullData(viewKey)
-        print("Get Full Data: " + str(fullData))
-    
-        nextData = evHistoryMngr.getNextData(viewKey)
-        print("Get Next Data: " + str(nextData))
+        while timeMngr.step():
+            fullData = evHistoryMngr.getFullData(viewKey)
+            print("Get Full Data: " + str(fullData))
+            TimeModule.timestamp2SCOSdate(timeMngr.getSampleTime().m_sec,timeMngr.getSampleTime().m_micro)
+            print("Sample time is: " + str(timeMngr.getSampleTime()) + "\n")
 
     if serverType == 1:
         orb.run()
@@ -176,8 +190,9 @@ except Exception as e:
     print('\033[1;37;41m Exited with exception:', e, '\033[0m')
     if serverType == 0:
         evServer.unlock()
+    # no more callbacks (even if unregisterEventView(viewKey) is not set)    
     evHistoryMngr.unregisterEvents(viewKey)
-    # unregistration of a notification information view
+    # unregistration of a notification information view (Live-Mode)
     evHistoryMngr.unregisterEventView(viewKey)
     sys.exit(1)
     

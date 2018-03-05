@@ -8,6 +8,7 @@ Access to TM Packet Data History (all packets filtered by DS and APID)
 
 import sys
 import CORBA, ITMP, ITMP_PRO, ITMP_PRO__POA, ICLOCK, IBASE, IBASE_IF__POA
+import TimeModule
 
 #==============================================================================
 #                           Implement client side view
@@ -25,9 +26,19 @@ try:
     class TMpacketMngrView(View,ITMP_PRO__POA.TMpacketMngrView):
         def __init__(self):
             print('Creating View object...')
+            
+            self.packetCounter = 0           
+            self.packetsList = []             
+            
         def notifyTMpackets(self,data):
-            print('TM packet values: ')
-            print(data)
+            
+            self.packetsList.append(data)
+            print('\033[1;34;48mTM packet values: \033[0m ' + str(data))
+            TimeModule.timestamp2SCOSdate(self.packetsList[self.packetCounter].m_pktAttributes.m_filingTime.m_sec, self.packetsList[self.packetCounter].m_pktAttributes.m_filingTime.m_micro)
+            TimeModule.timestamp2date(self.packetsList[self.packetCounter].m_pktAttributes.m_filingTime.m_sec, self.packetsList[self.packetCounter].m_pktAttributes.m_filingTime.m_micro)
+            print('\n')
+            
+            self.packetCounter = self.packetCounter + 1
 
     mngrViewObject = TMpacketMngrView()
 
@@ -83,16 +94,13 @@ try:
         timeMngr = tmpServer.m_timeMngr
         
         # retrieval backward mode, real time mode, history stop mode and retrieval forward mode possible
-        timeMngr.setMode(ICLOCK.HISTORY_FORWARD)
+        timeMngr.setMode(ICLOCK.HISTORY_BACKWARD)
         print('Time mode is: ' + timeMngr.getMode())
+               
+        scosDate = "2017.326.16.22.20.945000"
         
-        # clock of the server will be set to the largest packet time <= sampleTime
-        """ 23.11.2017 (327 Tage) 16:00 1511452800 (UTC 0) --> 1511367738: 22.11.2017 16:22:18 (UTC0)"""
-    
-        """ 1511367738: 22.11.2017 16:22:18 (UTC0) """
-        """ 1511367708: 22.11.2017 16:21:48 (UTC0) """    
-        timeMngr.setSampleTime(IBASE.Time(1511367708,0,False))
-        print('Sample time is: ' + str(timeMngr.getSampleTime()))
+        timeMngr.setSampleTime(IBASE.Time(TimeModule.scosDate2timestamp(scosDate)[0],TimeModule.scosDate2timestamp(scosDate)[1],False))
+        TimeModule.timestamp2SCOSdate(timeMngr.getSampleTime().m_sec,timeMngr.getSampleTime().m_micro)
         
         # step to next history entry (forward/backward) in retrieval mode
         #timeMngr.step()
@@ -110,17 +118,18 @@ try:
 
     # only those TM Packets, which match the filter, are sent to the client     
     _streamIds = timeMngr.getDataStreams()
-    _apIds = [53]
+    _apIds = []
+    _filingKeys = []
     
-    tmPacketFilter = ITMP.TMpacketFilter(_streamIds,_apIds)
+    tmPacketFilter = ITMP.TMpacketFilter(_streamIds,_apIds,_filingKeys)
     
 #==============================================================================
 #                        Definition of a Transmission Filter 
 #==============================================================================
 
-    _transmitPacketHeaderRawData = True
-    _transmitPacketBodyRawData = True
-    _transmitParameters = False
+    _transmitPacketHeaderRawData = False
+    _transmitPacketBodyRawData = False
+    _transmitParameters = True
     
     tmTransmissionFilter = ITMP.TransmissionFilter(_transmitPacketHeaderRawData,_transmitPacketBodyRawData,_transmitParameters)
 
@@ -139,22 +148,27 @@ try:
         
     else:
          print("\033[1;32;48mRegistration successful: View key = " + str(viewKey) + "\033[0m")
-
-    # Error: Exited with exception: CORBA.MARSHAL(omniORB.MARSHAL_PassEndOfMessage, CORBA.COMPLETED_NO) 
-    # CORBA.MARSHAL: Mismatch between the IDL definition seen by client and server?
-    # Requested stream in TMP Server 2 Log, compare with history
     
 #==============================================================================         
 #                        Get retrieval data (private server)
 #==============================================================================
 
-    if serverType == 0:
-        fullData = tmpHistoryMngr.getFullData(viewKey)
-        print("Get Full Data: " + str(fullData))
+    # get every packet
+    if serverType == 0:      
         
-        nextData = tmpHistoryMngr.getNextData(viewKey)
-        print("Get Next Data: " + str(nextData))
-
+        historyDataCounter = 0
+        historyDataList = []
+        
+        while timeMngr.step():
+            fullData = tmpHistoryMngr.getFullData(viewKey)
+            
+            historyDataList.append(fullData)
+            print("\033[1;32;48mGet Full Data: \033[0m" + str(fullData))
+            TimeModule.timestamp2SCOSdate(historyDataList[historyDataCounter][0].m_pktAttributes.m_filingTime.m_sec, historyDataList[historyDataCounter][0].m_pktAttributes.m_filingTime.m_micro)
+            print('\n')
+            
+            historyDataCounter = historyDataCounter + 1
+            
     if serverType == 1:
         orb.run()
 
