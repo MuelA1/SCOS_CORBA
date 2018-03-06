@@ -1,0 +1,13 @@
+# Setup Environment
+* Install Anaconda (download from https://www.anaconda.com/download/#linux)
+* Install omniORB
+** tar xf omniORB-4.2.2.tar.bz2
+** cd omniORB-4.2.2/; mkdir build
+** cd build/; ../configure (specify PYTHON='location of anaconda python binary' if required)
+** make
+** sudo make install
+* Install omniORBpy
+** repeat steps above
+* Add to .bashrc
+** export PYTHONPATH=$PYTHONPATH:{anaconda-location}/lib/python3.6/site-packages:{anaconda-location}"
+

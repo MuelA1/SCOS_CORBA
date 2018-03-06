@@ -1,0 +1,119 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria            */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITC_PRO_idl
+#define ITC_PRO_idl
+
+#include "ITC.idl"
+#include "ICLOCK_PRO.idl"
+
+/**
+ * Interface(s) for Command History Data Provision
+ *
+ * @version $RCSfile: ITC_PRO.idl,v $ $Revision: 1.18 $ - $Date: 2003/12/15 11:01:30 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITC_PRO
+{
+    /***************/
+    /* CommandMngr */
+    /***************/
+
+    interface CommandMngrView;
+
+    /** Serverside manager for Command History Data Provision */
+    interface CommandMngr: IBASE_IF::Model
+    {
+        /**
+         * registration for Command notification
+         * @parm if p_filter is invalid: no registration
+         * @returns false if registration failed (invalid filter)
+         */
+        long registerCommands(in CommandMngrView p_view,
+                              in ITC::CommandFilter p_filter,
+                              in ITC::TransmissionFilter p_packetFilter);
+
+        /**
+         * deregistration for Command notification
+         * @returns false if not registered
+         */
+        boolean unregisterCommands(in long p_viewKey);
+
+        /**
+         * modify the Command filter criterias
+         * @parm if p_filter is invalid: no filter modification
+         * @returns false if invalid filter
+         */
+        boolean modifyCommandFilter(in long p_viewKey,
+                                    in ITC::CommandFilter p_filter);
+
+        /**
+         * modification of the transmission flags
+         * @returns false if the view is not registered
+         */
+        boolean modifyTransmissionFilter(in long p_viewKey,
+                                         in ITC::TransmissionFilter p_Filter);
+
+        /**
+         * accessor for actual data
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITC::CommandNotifyData getFullData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+
+        /**
+         * iterator for the retrivial mode
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITC::CommandNotifyData getNextData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+    };
+
+    /*******************/
+    /* CommandMngrView */
+    /*******************/
+
+    /** Receiver for Command History */
+    interface CommandMngrView: IBASE_IF::View
+    {
+        /** callback for Command notifications */
+        void notifyCommands(in ITC::CommandNotifyData p_data);
+    };
+
+    /************/
+    /* TCServer */
+    /************/
+
+    /** Server for Command History */
+    interface TCserver: ICLOCK_PRO::TimingServer
+    {
+        readonly attribute CommandMngr m_commandMngr;
+    };
+
+    /****************/
+    /* TCserverMngr */
+    /****************/
+
+    /** Manages multiple Command servers */
+    interface TCserverMngr: ICLOCK_PRO::TimingServerMngr
+    {
+        /** default id for the naming service */
+        const string ServiceName = "TC_PRO_002";
+
+        /**
+         * accessor to a Command History server
+         * @raises IBASE::NotFound if there is already no server or there is
+         * no exclusive server when p_shared == false
+         */
+        TCserver getTCserver(in boolean p_shared) raises(IBASE::NotFound);
+    };
+};
+
+#endif

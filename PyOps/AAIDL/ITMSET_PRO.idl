@@ -1,0 +1,130 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria            */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITMSET_PRO_idl
+#define ITMSET_PRO_idl
+
+#include "ITMSET.idl"
+#include "ICLOCK.idl"
+#include "IBASE_IF.idl"
+
+/**
+ * Interface(s) for Telemetry Parameter Set Provision
+ *
+ * @version $RCSfile: ITMSET_PRO.idl,v $ $Revision: 1.16 $ - $Date: 2002/02/04 15:41:21 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITMSET_PRO
+{
+    /***********/
+    /* SetMngr */
+    /***********/
+
+    interface SetMngrView;
+
+    /** Serverside manager for Telemetry Parameter Set Provision */
+    interface SetMngr: IBASE_IF::Model
+    {
+        /**
+         * general registration for Set notification,
+         * must be called before registerSet
+         */
+        long registerSetView(in SetMngrView p_view,
+                             in ITMSET::TransmissionFilter p_packetFilter);
+
+        /**
+         * general deregistration for Set notification,
+         * should be called when no more set registration
+         */
+        boolean unregisterSetView(in long p_viewKey);
+
+        /**
+         * registration for Set notification
+         * @parm if p_criterias is invalid: no registration
+         * @returns false if registration failed (the Set size is zero or
+         * invalid criterias)
+         */
+        boolean registerSet(in long p_viewKey,
+                            in ITMSET::SetRegisterCrit p_criterias);
+
+        /**
+         * registration for Set notification with initialisation
+         * @parm if p_criterias is invalid: no registration
+         * @returns initialisation data.
+         */
+        ITMSET::ClientNotifyData registerSetInit(
+            in long p_viewKey,
+            in ITMSET::SetRegisterCrit p_criterias)
+          raises (IBASE::NotProcessed);
+
+        /**
+         * deregistration for Set notification
+         * @returns false if the view or a view's Set with the key is not 
+         * registered
+         */
+        boolean unregisterSet(in long p_viewKey,
+                              in long p_setKey);
+
+        /**
+         * registration of a Parameter in an already registered Set
+         * @parm if p_setKey or p_criterias is invalid: no registration
+         * @returns false if a Set with the same key is not registered or a
+         * Parameter with the same key is already registered or invalid
+         * criterias
+         */
+        boolean registerParamInSet(in long p_viewKey,
+                                   in long p_setKey,
+                                   in ITMSET::ParamRegisterCrit p_criterias);
+
+
+        /**
+         * deregistration for Set notification
+         * @returns false if the view or a view's Set with the setKey or the
+         * Parameter with the paramKey is not registered
+         */
+        boolean unregisterParamInSet(in long p_viewKey,
+                                     in long p_setKey,
+                                     in long p_paramKey);
+
+        /**
+         * modification of the transmission flags
+         * @returns false if the view is not registered
+         */
+        boolean modifyTransmissionFilter(in long p_viewKey,
+                                         in ITMSET::TransmissionFilter p_Filter);
+
+        /**
+         * accessor for actual data
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITMSET::ClientNotifyData getFullData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+
+        /**
+         * iterator for the retrivial mode
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITMSET::ClientNotifyData getNextData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+    };
+
+    /***************/
+    /* SetMngrView */
+    /***************/
+
+    /** Receiver for Telemetry Parameter Sets */
+    interface SetMngrView: IBASE_IF::View
+    {
+        /** callback for Telemetry Parameter Set notifications */
+        void notifySet(in ITMSET::ClientNotifyData p_data);
+    };
+};
+
+#endif

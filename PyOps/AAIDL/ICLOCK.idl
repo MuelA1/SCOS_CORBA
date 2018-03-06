@@ -1,0 +1,63 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE	- Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ICLOCK_idl
+#define ICLOCK_idl
+
+/**
+ * Type(s) for Clock control
+ *
+ * @version $RCSfile: ICLOCK.idl,v $ $Revision: 1.7 $ - $Date: 2001/03/09 11:47:27 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ICLOCK
+{
+    /************/
+    /* TimeMode */
+    /************/
+
+    /**
+     * Definition of the time mode. Used when accessing information
+     * from the caches (Telemetry-, Telecommand- and Event-Cache).
+     */
+    typedef char TimeMode;
+    const char REAL_TIME        = 'R';
+    const char HISTORY_STOP     = 'H';
+    const char HISTORY_FORWARD  = 'F';
+    const char HISTORY_BACKWARD = 'B';
+
+    /*************/
+    /* TimeState */
+    /*************/
+
+    /**
+     * State after manipulating the time context (for cache access)
+     */
+    typedef char TimeState;
+    const char OK               = 'O';
+    const char TOO_EARLY        = 'E';
+    const char TOO_LATE         = 'L';
+    const char INVALID          = 'I';
+    const char TOO_MANY_STREAMS = 'T';
+
+    /***************/
+    /* NotPossible */
+    /***************/
+
+    /**
+     * Exception when changing the time context or the data stream set
+     */
+    exception NotPossible
+    {
+        TimeState m_reason;
+    };
+};
+
+#endif

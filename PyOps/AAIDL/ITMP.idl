@@ -1,0 +1,156 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2002 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITMP_idl
+#define ITMP_idl
+
+#include "IBASE.idl"
+
+/**
+ * TM Packet Type(s)
+ *
+ * @version $RCSfile: ITMP.idl,v $ $Revision: 1.6 $ - $Date: 2003/05/21 17:29:30 $ 
+ *
+ * @author Stefan Korner
+ * @author Renate Huber
+ */
+module ITMP
+{
+    /** List of unsigned longs
+     *  Added this line on request from Rhea for compatibility to MOIS EXIF (bucher, 10.04.15)*/
+    typedef sequence<unsigned long> UnsignedLongs;
+
+    /** List of unsigned shorts */
+    typedef sequence<unsigned short> UnsignedShorts;
+ 
+    /** Representing the time stamp type of a packet */
+    typedef char TimeStampType;
+    const char TST_PacketReception    = '0'; // SCOS-2000 packet creation
+    const char TST_FrameTransmission  = '1'; // frame transmission
+    const char TST_PacketGeneration   = '2'; // source packet generation
+
+    /** Representing the time quality flag of a packet */
+    typedef char TimeQualityFlag;
+    const char TQF_Null        = 'N';
+    const char TQF_Good        = 'G';
+    const char TQF_Inaccurate  = 'I';
+    const char TQF_Bad         = 'B';
+
+    /** Representing the combination of data unit type and qualifier of a packet */
+    typedef char QualDataUnitType;
+    const char QDUT_NO_QDU        = 'U'; // no quality data unit qualifier
+                                         // Data Unit Type    / Qualifier
+    const char QDUT_GOOD_TF_QDU   = 'Q'; // TM TRANSFER FRAME / GOOD
+    const char QDUT_BAD_TF_QDU    = 'B'; // TM TRANSFER FRAME / BAD
+    const char QDUT_IDLE_TF_QDU   = 'I'; // TM TRANSFER FRAME / IDLE 
+    const char QDUT_GOOD_SP_QDU   = 'G'; // TM SOURCE PACKET  / GOOD
+    const char QDUT_BAD_SP_QDU    = 'A'; // TM SOURCE PACKET  / BAD
+    const char QDUT_IDLE_SP_QDU   = 'D'; // TM SOURCE PACKET  / IDLE
+    const char QDUT_UNKN_SP_QDU   = 'N'; // TM SOURCE PACKET  / UNKNOWN
+    const char QDUT_TIME_SP_QDU   = 'T'; // TM SOURCE PACKET  / TIME
+    const char QDUT_CLCW_PKT_QDU  = 'C'; // TM PACKET         / CLCW
+    const char QDUT_UDC_PKT_QDU   = 'P'; // TM PACKET         / UDC
+    const char QDUT_SCC_PKT_QDU   = 'S'; // TM PACKET         / SCC
+    const char QDUT_MISC_PKT_QDU  = 'M'; // TM PACKET         / DYNAMIC MISC
+    const char QDUT_MIB_PKT_QDU   = 'K'; // TM PACKET         / ON-LINE MIB CHANGES
+    const char QDUT_SPPG_PKT_QDU  = 'E'; // TM PACKET         / SPPG
+    const char QDUT_SPIDV_PKT_QDU = 'V'; // TM PACKET         / SPID VALIDITY
+    const char QDUT_TPKT_PKT_QDU  = 'F'; // TM PACKET         / TPKT CONFIG
+    const char QDUT_EXSRC_PKT_QDU = 'X'; // TM PACKET         / EXTERNAL SOURCE
+    const char QDUT_RES1_PKT_QDU  = '1'; // TM PACKET         / RESERVED
+    const char QDUT_RES2_PKT_QDU  = '2'; // TM PACKET         / RESERVED
+
+    /** TM packet attributes */
+    struct TMpacketAttributes
+    {
+        boolean          m_pktDetailsFlag;    // Packet details available
+        string           m_mnemo;             // mnemonic
+        IBASE::Time      m_filingTime;        // generation time
+        IBASE::Time      m_createTime;        // reception time
+        octet            m_vcId;              // VC (ID)
+        unsigned short   m_pusApId;           // APID
+        unsigned short   m_pusSrcSeqCnt;      // SSC
+        unsigned short   m_pusSrvcType;       // Type
+        unsigned short   m_pusSrvcSubType;    // S(ub)Type
+        unsigned long    m_pi1Field;          // PI1
+        unsigned long    m_pi2Field;          // PI2
+        unsigned short   m_streamId;          // DS (HFA D/S)
+        unsigned long    m_filingKey;         // SPID
+        unsigned short   m_gsId;              // GSID (G/S ID)
+        TimeStampType    m_timeStampType;     // TmT (Time Stamp Type)
+        TimeQualityFlag  m_timeQualityFlag;   // TmQ (Time Quality)
+        boolean          m_filingFlag;        // Filing enabled/disabled
+        boolean          m_distributionFlag;  // Distribution enabled/disabled
+        string           m_packetDescription; // packet description
+        boolean          m_simulationFlag;    // Simulated true/false
+        unsigned short   m_spaceCraftId;      // S/C ID
+        octet            m_sleID;             // SLE ID
+        octet            m_occID;             // OCC ID
+        QualDataUnitType m_qualDataUnitType;  // Data Unit Type
+        long             m_tpsd;              // TPSD
+        unsigned long    m_seqCounter;        // HFA Counter
+        boolean          m_timeField;         // Time Field presence
+        long             m_interval;          // Packet Period
+        string           m_eventFlag;         // Event Serverity
+        octet            m_checkFlag;         // CRC
+    };
+        
+    /** Data of a TM packet parameter */
+    struct TMpacketParam
+    {
+        string       m_name;                // Parameter Name
+        string       m_description;         // Description (PCF)
+        string       m_value;               // Value
+        string       m_unit;                // Unit
+        IBASE::Radix m_form;                // Format
+    };
+
+    /** Parameters of a TM packet */
+    typedef sequence<TMpacketParam> TMpacketParams;
+
+    /**********************/
+    /* TMpacketNotifyData */
+    /**********************/
+
+    struct TMpacketNotifyData
+    {
+        TMpacketAttributes m_pktAttributes;    // packet attributes
+        IBASE::ByteString m_pktHeaderRawData;  // S2K packet header byte stream
+        IBASE::ByteString m_pktBodyRawData;    // S2K packet body byte stream
+        TMpacketParams m_pktParams;            // VPD parameter
+    };
+
+    /** Multiple TM packet notification data */
+    typedef sequence<TMpacketNotifyData> TMpacketNotifyDatas;
+
+    /******************/
+    /* TMpacketFilter */
+    /******************/
+
+    /** Packet filter */
+    struct TMpacketFilter
+    {
+        UnsignedShorts m_streamIds;    // data streams to be filtered
+        UnsignedShorts m_apIds;        // APIDs to be filtered
+	UnsignedLongs m_filingKeys;    // SPIDs to be filtered         
+    };
+
+    /**********************/
+    /* TransmissionFilter */
+    /**********************/
+ 
+   /** Transmission filter for TM packets */
+    struct TransmissionFilter
+    {
+        boolean m_transmitPacketHeaderRawData;  // transmit S2K packet header raw data
+        boolean m_transmitPacketBodyRawData;    // transmit S2K packet body raw data
+        boolean m_transmitParameters;           // transmit VPD parameter
+    };
+};
+
+#endif

@@ -1,0 +1,78 @@
+//--------------------------------------------------------------------------
+//
+// (C) 2000     European Space Agency
+//              European Space Operations Centre
+//              Darmstadt, Germany
+//
+// -------------------------------------------------------------------------
+//
+// System       : SCOS-2000 - the Satellite Control and Operations System
+//
+// Sub-System   : ECH
+//
+// File Name    : ITC_INJ_INTL.idl
+//
+// Author       : Sam Cooper
+//
+// Creation Date: August 2000
+//
+// Description  : Interface definition for the command injection service
+//                  internal interfaces. These extra methods defined here
+//                  allow the internal object to manage to interface pool
+//                  without having to expose the interface to external
+//                  clients.
+//
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+#ifndef ITC_INJ_INTL_idl
+#define ITC_INJ_INTL_idl
+
+
+// -- Includes
+#include "ITC_INJ.idl"
+
+
+// -- Constants, Enums, Typedefs
+
+// namespace for internal Command Injection Service interfaces
+module ITC_INJ_INTL
+{
+  //---------------------------------------------------------------------------
+  //
+  // INTERFACE: CommandInjectMngr
+  //
+  // INTERFACE DESCRIPTION: Derived from public interface, but has an extra
+  //                          method for setting the callback interface.
+  // 
+  //---------------------------------------------------------------------------
+  interface CommandInjectMngr : ITC_INJ::CommandInjectMngr
+  {
+    // Set the external command source interface
+    void setCallbackInf (in ITC_INJ::CommandInjectMngrView view,
+			 in string sourceName);
+  };
+  //---------------------------------------------------------------------------
+
+
+  //---------------------------------------------------------------------------
+  //
+  // INTERFACE: TCinjectServerMngr
+  //
+  // INTERFACE DESCRIPTION: Derived from public interface, but has extra
+  //                          methods for connecting and disconnecting from
+  //                          the interface pool.
+  // 
+  //---------------------------------------------------------------------------
+  interface TCinjectServerMngr : ITC_INJ::TCinjectServerMngr
+  {
+    // provides the SCOS-2000 UTC time
+    long addToPool (in CommandInjectMngr inj, in boolean inUse);
+    // provides the SCOS-2000 UTC time
+    void makeAvailable (in long ticket);
+    // provides the SCOS-2000 UTC time
+    void removeFromPool (in long ticket);
+  };
+};
+
+#endif
+//-----------------------------END--------------------------------------------

@@ -1,0 +1,127 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE	- Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ICLOCK_PRO_idl
+#define ICLOCK_PRO_idl
+
+#include "ICLOCK.idl"
+#include "IBASE.idl"
+#include "IBASE_IF.idl"
+
+/**
+ * Interface(s) for Clock control
+ *
+ * @version $RCSfile: ICLOCK_PRO.idl,v $ $Revision: 1.14 $ - $Date: 2003/06/30 12:01:16 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ICLOCK_PRO
+{
+    /************/
+    /* TimeMngr */
+    /************/
+
+    /** Generic manipulating a servers the time context */
+    interface TimeMngr
+    {
+        /** set the time mode (especially for retrieval mode) */
+        ICLOCK::TimeState setMode(in ICLOCK::TimeMode p_mode);
+        /** returns the time mode */
+        ICLOCK::TimeMode getMode();
+
+        /**
+         * set the data streams (especially for retrieval mode; not
+         * for TM packet server);
+         * This can be done only on a locked server, otherwise
+         * ICLOCK::INVALID is returned and nothing will be done
+         */
+        ICLOCK::TimeState setDataStreams(in IBASE::Longs p_streams);
+        /** returns the data streams */
+        IBASE::Longs getDataStreams();
+
+        /**
+         * set the time context of the server process
+         * (for retrieval mode only)
+         */
+        ICLOCK::TimeState setSampleTime(in IBASE::Time p_time);
+        /** returns the time context of the server process */
+        IBASE::Time getSampleTime();
+
+        /**
+         * set the packet retrieval mode to Interval by Interval
+         * and the interval time p_time (only for TM retrieval mode);
+         * This can be done only on a locked server, otherwise
+         * ICLOCK::INVALID is returned and nothing will be done
+         */
+        ICLOCK::TimeState setIntervalMode(in IBASE::Time p_time);
+
+        /**
+         * set the packet retrieval mode to Packet by Packet
+         * (for TM retrieval mode only)
+         * This can be done only on a locked server, otherwise
+         * ICLOCK::INVALID is returned and nothing will be done
+         */
+        ICLOCK::TimeState setPacketMode();
+
+        /**
+         * returns true, if the packet retrieval mode is
+         * Packet by Packet, and false, if it is Interval by Interval
+         */
+        boolean isPacketMode();
+
+        /**
+         * skip to the next sample in the history
+         * @see ICLOCK_PRO::TimeMngr::setMode
+         * @see ICLOCK_PRO::TimeMngr::setSampleTime
+         */
+        ICLOCK::TimeState step();
+
+        /** returns the oldest time in the history */
+        IBASE::Time getMinTime();
+        /** returns the newest time in the history */
+        IBASE::Time getMaxTime();
+
+        /** provides the SCOS-2000 UTC time */
+        IBASE::Time getUTC();
+        /**
+         * allows the external application to check the time used by the
+         * SCOS-2000 system and to detect whether SCOS-2000 system is currently
+         * using a simulation time
+         */
+        IBASE::Time getDeltaTimeToUTC();
+    };
+
+    /****************/
+    /* TimingServer */
+    /****************/
+
+    /** Generic server with time context */
+    interface TimingServer: IBASE_IF::Server
+    {
+        readonly attribute ICLOCK_PRO::TimeMngr m_timeMngr;
+    };
+
+    /********************/
+    /* TimingServerMngr */
+    /********************/
+
+    /** Manages multiple servers wich can be shareable or not */
+    interface TimingServerMngr: IBASE_IF::ServerMngr
+    {
+        /*
+         * accessor to a timing server
+         * @raises IBASE::NotFound if there is already no server or there is
+         * no exclusive server when p_shared == false
+         */
+        TimingServer getTimingServer(in boolean p_shared)
+            raises(IBASE::NotFound);
+    };
+};
+
+#endif

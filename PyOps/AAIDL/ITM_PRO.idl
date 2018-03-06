@@ -1,0 +1,163 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE	- Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITM_PRO_idl
+#define ITM_PRO_idl
+
+#include "ITM.idl"
+#include "ICLOCK_PRO.idl"
+#include "IMIB.idl"
+#include "ITMSET_PRO.idl"
+
+/**
+ * Interface(s) for Telemetry Data Provision
+ *
+ * @version $RCSfile: ITM_PRO.idl,v $ $Revision: 1.20 $ - $Date: 2003/06/20 09:10:41 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITM_PRO
+{
+    interface ParameterView;
+  
+    /*************/
+    /* Parameter */
+    /*************/
+
+    /** Helper for registerParamInit */
+    struct RegParamInit
+    {
+        long m_key;
+        ITM::AllValues m_initValue;
+    };
+  
+    /** Representing a TM parameter */
+    interface Parameter: IBASE_IF::Model
+    {
+        /** static defnition of a parameter */
+        readonly attribute IMIB::ParamDef m_definition;
+
+        /** returns the change attributes since the last update */
+        IMIB::ParamAttributeType getChangedAttribute();
+        /** raw value */
+        ITM::Value getRawValue() raises(IBASE::NotFound);
+        /** engineering value */
+        ITM::Value getEngValue() raises(IBASE::NotFound);
+        /** synthetic / hardcoded syntetic value */
+        ITM::Value getSynValue() raises(IBASE::NotFound);
+        /** source value */
+        ITM::Value getSourceValue() raises(IBASE::NotFound);
+        /** default value */
+        ITM::Value getDefaultValue() raises(IBASE::NotFound);
+        /** return true if validity of each value is OK */
+        boolean allValuesValid();
+        /** returns the Out of Limits state */
+        ITM::OOLstate getOOLstate();
+        /** returns the actual OOL low limit */
+        IBASE::Variant getActualLowLimit();
+        /** returns the actual OOL high limit */
+        IBASE::Variant getActualHighLimit();
+        /** returns the Status Consistency Check state */
+        ITM::SCCstate getSCCstate();
+
+        /**
+         * registration of a view for notifications: on the client side
+         * IBASE_IF::View::notifyModel is called and it is the responsibillity
+         * of the client to fetch the corresponding data. The client has to
+         * call Parameter::getChangedAttribute to determine the changes before
+         * fetching of the data is done.
+         * @see ITM_PRO::Parameter::getChangedAttribute
+         * @see ITM_PRO::ParameterView::notifyParameter
+         *
+         * @parm p_onUpdate: notify on every update
+         * @parm p_onChange: flags for attributes, notify only on change
+         * @parm p_onlyOnce: notify only once
+         * @returns 0 if registration failed
+         */
+        long registerParam(in ParameterView p_view,
+                           in boolean p_onUpdate,
+                           in IMIB::ParamValueType p_onChange,
+                           in boolean p_onlyOnce);
+        /** 
+         * Same as registerParam, but initial value is returned.
+         * If registration failes, RegParamInit.m_key is 0, and initial value
+         * is undefined.
+         * @see registerParam
+         * @returns structure containing registration key and init. value.
+         */
+        RegParamInit registerParamInit(in ParameterView p_view,
+                               in boolean p_onUpdate,
+                               in IMIB::ParamValueType p_onChange,
+                               in boolean p_onlyOnce);
+
+        /**
+         * Get all the values of this parameter
+         * @param p_viewKey: Registration key (currently ignored)
+         * @returns structure containing all the values
+         */
+        ITM::AllValues getFullData(in long p_viewKey);
+    };
+
+    /*****************/
+    /* ParameterView */
+    /*****************/
+    interface ParameterView: IBASE_IF::View
+    {
+      void notifyParameter(in long p_key, in ITM::AllValues p_dvalue);
+    };
+
+  
+    /*****************/
+    /* ParameterMngr */
+    /*****************/
+
+    /** Manager for accessing TM parameters */
+    interface ParameterMngr
+    {
+        /**
+         * returns a TM parameter
+         * @parm p_client: required for checking the client connection. The
+         * parameter is automatically released if the client connection is lost.
+         * @raises IBASE::NotFound if there is an invalid parameter name
+         */
+        Parameter getParameter(in string p_name, in Object p_client)
+            raises(IBASE::NotFound);
+    };
+
+    /************/
+    /* TMServer */
+    /************/
+
+    /** Server for Telemetry */
+    interface TMserver: ICLOCK_PRO::TimingServer
+    {
+        readonly attribute ParameterMngr m_parameterMngr;
+        readonly attribute ITMSET_PRO::SetMngr m_setMngr;
+    };
+
+    /****************/
+    /* TMServerMngr */
+    /****************/
+
+    /** Manages multiple Telemetry servers */
+    interface TMserverMngr: ICLOCK_PRO::TimingServerMngr
+    {
+        /** default id for the maming service */
+        const string ServiceName = "TM_PRO_001";
+
+        /**
+         * accessor to a Telemetry server
+         * @raises IBASE::NotFound if there is already no server or there is
+         * no exclusive server when p_shared == false
+         */
+        TMserver getTMserver(in boolean p_shared) raises(IBASE::NotFound);
+    };
+};
+
+#endif

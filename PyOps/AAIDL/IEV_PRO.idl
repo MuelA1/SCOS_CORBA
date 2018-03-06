@@ -1,0 +1,149 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria            */
+/*                                                                            */
+/******************************************************************************/
+#ifndef IEV_PRO_idl
+#define IEV_PRO_idl
+
+#include "IEV.idl"
+#include "ICLOCK_PRO.idl"
+
+/**
+ * Interface(s) for Event Data Provision
+ *
+ * @version $RCSfile: IEV_PRO.idl,v $ $Revision: 1.38 $ - $Date: 2003/06/20 09:10:40 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module IEV_PRO
+{
+    interface EventMngrView;
+
+    /** Serverside manager for Event Data and Out of Limits Provision */
+    interface EventMngr: IBASE_IF::Model
+    {
+        /**
+         * general registration for Event and OOL notification,
+         * must be called before registerSet
+         */
+        long registerEventView(in EventMngrView p_view,
+                               in IEV::TransmissionFilter p_packetFilter);
+
+        /**
+         * general deregistration for Event and OOL notification,
+         * should be called when no more event or OOL registration
+         */
+        boolean unregisterEventView(in long p_viewKey);
+
+        /**
+         * registration for Event notification
+         * @parm if p_filter is invalid: no registration
+         * @returns 0 if registration failed (invalid filter)
+         */
+        boolean registerEvents(in long p_viewKey,
+                               in IEV::EventFilter p_filter);
+
+        /**
+         * deregistration for Event notification
+         * @returns false if not registered
+         */
+        boolean unregisterEvents(in long p_viewKey);
+
+        /**
+         * modify the Event filter criterias
+         * @parm if p_filter is invalid: no filter modification
+         * @returns false if invalid filter
+         */
+        boolean modifyEventFilter(in long p_viewKey,
+                                  in IEV::EventFilter p_filter);
+
+        /**
+         * registration for Out of Limits notification
+         * @parm if p_filter is invalid: no registration
+         * @returns 0 if registration failed (invalid filter)
+         */
+        boolean registerOOLs(in long p_viewKey,
+                             in IEV::OOLinfoFilter p_filter);
+
+        /**
+         * deregistration for Out of Limits notification
+         * @returns false if not registered
+         */
+        boolean unregisterOOLs(in long p_viewKey);
+                               
+        /**
+         * modify the  Out of Limits filter criteria
+         * @parm if p_filter is invalid: no filter modification
+         * @returns false if invalid filter
+         */
+        boolean modifyOOLfilter(in long p_viewKey,
+                                in IEV::OOLinfoFilter p_filter);
+
+        /**
+         * modification of the transmission flags
+         * @returns false if the view is not registered
+         */
+        boolean modifyTransmissionFilter(in long p_viewKey,
+                                         in IEV::TransmissionFilter p_Filter);
+                                         
+        /**
+         * accessor for actual data
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        IEV::CombinedEvents getFullData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+
+        /**
+         * iterator for the retrivial mode
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        IEV::CombinedEvents getNextData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+    };
+
+    /*****************/
+    /* EventMngrView */
+    /*****************/
+
+    /** Receiver for Event Data and Out of Limits */
+    interface EventMngrView: IBASE_IF::View
+    {
+        /** callback for Event notifications */
+        void notifyEvents(in IEV::CombinedEvents p_data);
+    };
+
+    /************/
+    /* EVServer */
+    /************/
+
+    /** Server for Event Data and Out of Limits */
+    interface EVserver: ICLOCK_PRO::TimingServer
+    {
+        readonly attribute EventMngr m_eventMngr;
+    };
+
+    /****************/
+    /* EVserverMngr */
+    /****************/
+
+    /** Manages multiple Event servers */
+    interface EVserverMngr: ICLOCK_PRO::TimingServerMngr
+    {
+        /** default id for the maming service */
+        const string ServiceName = "EV_PRO_001"; 
+
+        /**
+         * accessor to an Event server
+         * @raises IBASE::NotFound if there is already no server or there is
+         * no exclusive server when p_shared == false
+         */
+        EVserver getEVserver(in boolean p_shared) raises(IBASE::NotFound);
+    };
+};
+
+#endif

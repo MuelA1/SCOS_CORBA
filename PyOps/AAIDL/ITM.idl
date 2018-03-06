@@ -1,0 +1,148 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITM_idl
+#define ITM_idl
+
+#include "IBASE.idl"
+
+/**
+ * Telemetry Type(s)
+ *
+ * @version $RCSfile: ITM.idl,v $ $Revision: 1.14 $ - $Date: 2003/08/08 14:35:49 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITM
+{
+    /************/
+    /* Validity */
+    /************/
+
+    /** Representing the validity of a value */
+    typedef long Validity;
+
+    // INVALID - 4 bits
+    const long VAL_STATE_OFF =         0x00000001; // State validity evaluates to 0
+    const long VAL_POWER_OFF =         0x00000002; // System element is not powered
+    const long VAL_ROUTE_OFF =         0x00000004; // Transport device route is off
+    const long VAL_MISC =              0x00000008; // Spare bit for invalid
+    // TRANSIENT - 1 bit
+    const long VAL_TRANSIENT =         0x00000010; // Telecommand scheduled for param
+    // EXPIRED - 1 bit
+    const long VAL_EXPIRED =           0x00002000; // VALue has expired(packet not arrived)
+    // INDETERMINABLE - 6 bits
+    const long VAL_UNKNOWN_STATE =     0x00004000; // State parameter is !valid
+    const long VAL_UNKNOWN_COMMAND =   0x00008000; // Had to branch on !valid condition
+    const long VAL_UNKNOWN_CRITERIA =  0x00010000; // Had to select on !valid applic crit
+    const long VAL_CALIBRATION =       0x00020000; // calibration failed
+    const long VAL_TOO_EARLY =         0x00040000; // requested time predates mission
+    const long VAL_UNKNOWN_PKT =       0x00080000; // pkt not configured in cache
+    // GENERAL SYSTEM ERROR - 12 bits
+    const long VAL_UNINIT =            0x00100000; // VALue has not been initialised
+    const long VAL_PKT_RETRV =         0x00200000; // Packet retrieval error
+    const long VAL_MIB_ERROR =         0x00400000; // error in MIB data
+    const long VAL_SYSTEM_ERROR =      0x00800000; // misc system error
+    const long VAL_FIELD_UNKNOWN =     0x01000000; // Field unknown in packet definition
+    const long VAL_FIELD_ABSENT =      0x02000000; // Field absent from given pkt
+    const long VAL_UNKNOWN_TYPE =      0x04000000; // Unknown Type name for VALue constrctr
+    const long VAL_UNKNOWN_OP =        0x08000000; // Unknown operator for VALue's type
+    const long VAL_UNKNOWN_CONV =      0x10000000; // Unknown conversion for VALue's type
+    const long VAL_OVERFLOW  =         0x20000000; // an overflow occured - data lost
+    const long VAL_DIVIDE_BY_ZERO =    0x40000000; // a big overflow would've occured!
+    const unsigned long VAL_OL_PARSE = 0x80000000; // error occured parsing OL expression
+
+    /*********/
+    /* Value */
+    /*********/
+
+    /** Atomic value bundle without time */
+    struct ReducedValue
+    {
+        IBASE::Variant m_value;
+        Validity m_validity;
+    };
+
+    /** Atomic value bundle with time */
+    struct Value
+    {
+        IBASE::Variant m_value;
+        Validity m_validity;
+        IBASE::Time m_sampleTime;
+    };
+
+    /************/
+    /* OOLstate */
+    /************/
+
+    /** Representing the Out of Limits state of a TM parameter */
+    typedef char OOLstate;
+    const char OOL_NOMINAL =         'n';
+    const char OOL_VIOLATION =       'v';
+    const char OOL_WARNING_UNKNOWN = 'u';
+    const char OOL_WARNING_LOW =     'l';
+    const char OOL_WARNING_HIGH =    'h';
+    const char OOL_ALARM_UNKNOWN =   'U';
+    const char OOL_ALARM_LOW =       'L';
+    const char OOL_ALARM_HIGH =      'H';
+    const char OOL_SCC =             'S';
+
+    /************/
+    /* SCCstate */
+    /************/
+
+    /** Representing the Status Consistency of a TM parameter */
+    typedef char SCCstate;
+    const char SCC_UNINIT =  'U';
+    const char SCC_INIT =    'I';
+    const char SCC_DISABLE = 'D';
+    const char SCC_OFF =     'O'; 
+
+    /*******************/
+    /* AllValues       */
+    /*******************/
+    struct AllValues
+    {
+      IBASE::Time m_sampleTime;
+      OOLstate m_oolState;
+      SCCstate m_sccState;
+
+      // Some of these values may be null
+      ReducedValue m_rawValue;
+      ReducedValue m_engValue;
+      ReducedValue m_synValue;
+      ReducedValue m_sourceValue;
+      ReducedValue m_defaultValue;
+    };
+  
+  
+    /***************/
+    /* InjectParam */
+    /***************/
+
+    /** Parameter data for injection */
+    struct InjectParam
+    {
+        // parameter name
+        string m_name;
+        // switch whether the injected value is raw or engineering
+        boolean m_isEngValue;
+        // value
+        IBASE::Variant m_value;
+    };
+
+    /****************/
+    /* InjectParams */
+    /****************/
+
+    /** List of several parameters for injection */
+    typedef sequence<InjectParam> InjectParams;
+};
+
+#endif

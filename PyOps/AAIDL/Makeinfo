@@ -1,0 +1,115 @@
+#-------------------------------------------------------------------------------
+#
+# (C) 2000 	Siemens PSE, Programm and System Engineerin
+#		Vienna, Austria
+#
+#-------------------------------------------------------------------------------
+#
+# system:	EXIF  -  SCOS-2000 CORBA based External Interfaces
+#
+# subsystem:	AAIDL
+# 
+# file:		Makeinfo
+#
+# description:	AAIDL's Makefile
+#
+# sccs:		Makeinfo 1.22 - 01/03/20 13:33:16
+#
+#-------------------------------------------------------------------------------
+#
+# TARGETS	- specify the targets.
+#
+# SUBSYSTEM	- define the name of the current subsystem (3-4 CAPITAL NAME)
+# PROGRAM	- a list of names of each binary target
+# LIBRARY	- a list of names of each library target
+#
+# NB. if there is no program/library target to be build, leave the corresponding
+#     flag UNSET.
+#
+#-------------------------------------------------------------------------------
+
+# extend for CORBA
+# IDLFLAGS = -bcxx -Wbh=.H -Wbs=.C -Wbtp -C$(STUBDIR)
+
+SUBSYSTEM = AAIDL
+LIBRARY = AAIDL
+
+#------------------------------------------------------------------------------
+#
+# CLASS LIBRARIES - specify which are used.
+#
+# If you are using a specific class library, then set the flag below to 'yes';
+# otherwise leave it empty as shown. This controls which include and library
+# directories are searched during compilation, etc.
+# 
+#------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+#
+# SOURCES	- specify the sources.
+#
+# For each target, specify the sources needed to build it. All derived files
+# are covered automatically, and should hence not be included in the source
+# list.
+#
+# Specify the sources as:
+#
+# {PROGRAM/LIBRARY}_SOURCES.{C,c,L,Y,U} = src/...
+#
+# where C - C++ source
+#       c - c source
+#       L - lex++ source
+#       Y - yacc++ source
+#       U - uib source (Nigels automatic generation routines)
+#
+# Specify the name of the files relatively to the SYS directory, i.e. as
+# src/.... This gives the possibility of having multiple src directory if
+# the subsystem is large.
+# 
+#-------------------------------------------------------------------------------
+
+AAIDL_IDLS = \
+	IBASE.idl \
+	IBASE_IF.idl \
+	IMIB.idl \
+	IMIB_PRO.idl \
+	ICLOCK.idl \
+	ICLOCK_PRO.idl \
+	ITM.idl \
+	ITM_PRO.idl \
+	ITM_INJ.idl \
+	ITMSET.idl \
+	ITMSET_PRO.idl \
+	ITMP.idl \
+	ITMP_PRO.idl \
+	ITC.idl \
+	ITC_PRO.idl \
+	ITC_INJ.idl \
+	ITC_INJ_INTL.idl \
+	IEV.idl \
+	IEV_PRO.idl \
+	IEV_INJ.idl \
+	IUSER_IF.idl
+
+AAIDL_SOURCES = \
+	IBASE.C \
+	IBASE_IF.C \
+	IMIB.C \
+	IMIB_PRO.C \
+	ICLOCK.C \
+	ICLOCK_PRO.C \
+	ITM.C \
+	ITM_PRO.C \
+	ITM_INJ.C \
+	ITMSET.C \
+	ITMSET_PRO.C \
+	ITMP.C \
+	ITMP_PRO.C \
+	ITC.C \
+	ITC_PRO.C \
+	ITC_INJ.C \
+	ITC_INJ_INTL.C \
+	IEV.C \
+	IEV_PRO.C \
+	IEV_INJ.C \
+	IUSER_IF.C

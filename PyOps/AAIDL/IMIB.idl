@@ -1,0 +1,452 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef IMIB_idl
+#define IMIB_idl
+
+#include "IBASE.idl"
+
+/**
+ * Type(s) for MIB (Mission Information Base) access
+ *
+ * @version $RCSfile: IMIB.idl,v $ $Revision: 1.39 $ - $Date: 2005/05/04 13:24:44 $ 
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module IMIB
+{
+    /**************/
+    /* DataColumn */
+    /**************/
+
+    /**
+     * Name and Description are the only two attributes, that are present for
+     * each static data struct.
+     * @see IMIB::DEFAULT_NAME
+     * @see IMIB::DEFAULT_DESCRIPTION
+     *
+     * Additional attributes are specified in derived types for Telemetry 
+     * Parameters, Commands, Alphanumeric Displays, Graphical Displays and
+     * Scrolling Displays.
+     * @see IMIB::ParamDef
+     * @see IMIB::CommandDef
+     * @see IMIB::ANDdef
+     * @see IMIB::GRDdef
+     * @see IMIB::SCRdef
+     */
+    typedef long AttributeType;
+    const short DEFAULT_NAME        = 0x0001;
+    const short DEFAULT_DESCRIPTION = 0x0002;
+
+    /** Table column with static MIB data */
+    struct DataColumn
+    {
+        AttributeType m_columnTag;
+        IBASE::Strings m_values;
+    };
+
+    /** Table with static MIB data */
+    typedef sequence<DataColumn> DataTable;
+
+    /******************/
+    /* extented Radix */
+    /******************/
+
+    /**
+     * Extension to IBASE::Radix
+     * @see IBASE::Radix
+     */
+    const char NORMAL = 'N';
+
+    /************/
+    /* ParamDef */
+    /************/
+
+    /** Qualification of a Parameter's value */
+    typedef short ParamValueType;
+    const short PARAM_RAW_VALUE     = 0x0010;
+    const short PARAM_ENG_VALUE     = 0x0020;
+    const short PARAM_SYN_VALUE     = 0x0040;
+    const short PARAM_SOURCE_VALUE  = 0x0100;
+    const short PARAM_DEFAULT_VALUE = 0x0200;
+    const short PARAM_OOL           = 0x1000;
+    const short PARAM_SCC           = 0x2000;
+
+    /**
+     * Extension to AttributeType for Telemetry Parameters
+     * @see IMIB::AttributeType
+     */
+    typedef short ParamAttributeType;
+    const short PARAM_NAME               = DEFAULT_NAME;
+    const short PARAM_DESCRIPTION        = DEFAULT_DESCRIPTION;
+    const short PARAM_VALUE_FLAGS        = 0x0004;
+    const short PARAM_RAW_VALUE_UNIT     = 0x0010;
+    const short PARAM_ENG_VALUE_UNIT     = 0x0020;
+    const short PARAM_SYN_VALUE_UNIT     = 0x0040;
+    const short PARAM_SOURCE_VALUE_UNIT  = 0x0100;
+    const short PARAM_DEFAULT_VALUE_UNIT = 0x0200;    
+
+    /** One entry for text calibration */
+    struct TextCalibrationEntry
+    {
+        double m_sourceRangeMinValue;
+        double m_sourceRangeMaxValue;
+        string m_text;
+    };
+
+    /** Several entries for text calibration */
+    typedef sequence<TextCalibrationEntry> TextCalibrationEntries;
+    
+    /** Textual calibration */   
+    struct TextCalibration
+    {
+        string m_name;
+        string m_description;
+        boolean m_interpretation;      // partial (true) or full interpretation
+        TextCalibrationEntries m_entries;
+    }; 
+
+    /** One point for point calibration */
+    struct CalibrationPoint
+    {
+        double m_sourceValue;
+        double m_calibValue;
+    };
+
+    /** Several calibration points for point calibration*/
+    typedef sequence<CalibrationPoint> CalibrationPoints;
+
+    /** Point calibration (Polygon) */
+    struct PointCalibration
+    {
+        string m_name;
+        string m_description;
+        boolean m_interpretation;      // partial (true) or full interpretation
+        CalibrationPoints m_points;
+    };
+
+    /**
+     * One term for polynom calibration
+     * A * x^B
+     */
+    struct Term
+    {
+        double m_coefficient;   // A
+        short m_order;          // B
+    };
+
+    /**
+     * CalibrationPolynom
+     * A0 * x^0 + A1 * x^1 + A2 * x^2 + ...
+     */
+    typedef sequence<Term> Polynom;
+
+    /** Polynomial calibration */
+    struct PolyCalibration
+    {
+        string m_name;
+        string m_description;
+        boolean m_interpretation;      // partial (true) or full interpretation
+        Polynom m_polynom;
+    };
+
+    /** Discriminator for different calibration modes */
+    typedef char CalibrationMode;
+    const char CALIB_NONE  = 'N';
+    const char CALIB_TEXT  = 'T';
+    const char CALIB_POINT = 'P';
+    const char CALIB_POLY  = 'Y';
+
+    /**
+     * Calibration of Telemetry Parameter
+     */
+    union Calibration switch(CalibrationMode)
+    {
+      case CALIB_NONE:  boolean m_noneCalibration;
+      case CALIB_TEXT:  TextCalibration m_textCalibration;
+      case CALIB_POINT: PointCalibration m_pointCalibration;
+      case CALIB_POLY:  PolyCalibration m_polyCalibration;
+    };
+
+    /**
+     * Value detail definition
+     */
+    struct ValueDetailDef
+    {
+        boolean m_hasValueRange;           // true if there is a value range
+        double m_minValue;                 // numeric min. value
+        double m_maxValue;                 // numeric max. value
+        string m_valueType;                // the type of the value
+        unsigned short m_decim;            // nr. of decimal places for display
+        boolean m_hasLimits;               // true if there are limits defined
+    };
+
+    /** Static information of a Telemetry Parameter */
+    struct ParamDef
+    {
+        string m_name;
+        string m_description;
+        string m_type;               // coding of parameter depending on PUS
+        unsigned short m_width;      // the bit width of the parameter value
+        boolean m_hasValPar;         // true if there is a validity parameter and a check value
+        string m_valPar;             // associated validity parameter
+        long m_valChk;               // check value of validtiy parameter
+        ParamValueType m_valueFlags; // available parame. values and values unit
+        string m_rawValueUnit;
+        string m_engValueUnit;
+        string m_synValueUnit;
+        string m_sourceValueUnit;
+        string m_defaultValueUnit;
+
+        Calibration m_calibration;
+        ValueDetailDef m_sourceValueDetails;
+        ValueDetailDef m_calibValueDetails;
+    };
+
+    /** Definition of several Telemetry Parameters */
+    typedef sequence<ParamDef> ParamDefs;
+
+    /***********/
+    /* TaskDef */
+    /***********/
+
+    /**
+     * Extension to AttributeType for Tasks
+     * @see IMIB::AttributeType
+     */
+    typedef long TaskAttributeType;
+    const long TASK_NAME        = DEFAULT_NAME;
+    const long TASK_DESCRIPTION = DEFAULT_DESCRIPTION;
+
+    /** Task parameter */
+    struct TaskParamDef
+    {
+        string m_name;
+        string m_description;
+        boolean m_isEditable;
+        boolean m_engValueIsDefault;
+        string m_unit;
+        IBASE::Radix m_defaultRadix;
+        IBASE::VariantState m_valueType;
+        IBASE::Variant m_defaultValue;
+        long m_repeatSize;
+    };
+
+    /** Several task parameters */
+    typedef sequence<TaskParamDef> TaskParamDefs;
+
+    /** Static information of a Task */
+    struct TaskDef
+    {
+        string m_name;
+        string m_description;
+        TaskParamDefs m_params;
+    };
+
+    /** Definition of several tasks */
+    typedef sequence<TaskDef> TaskDefs;
+
+    /**************/
+    /* CommandDef */
+    /**************/
+
+    /**
+     * Extension to AttributeType for Commands
+     * @see IMIB::AttributeType
+     */
+    typedef long CommandAttributeType;
+    const long COMMAND_NAME        = TASK_NAME;
+    const long COMMAND_DESCRIPTION = TASK_DESCRIPTION;
+
+    /** Static information of a Command */
+    typedef TaskDef CommandDef;
+
+    /** Definition of several Commands */
+    typedef TaskDefs CommandDefs;
+
+    /***************/
+    /* SequenceDef */
+    /***************/
+
+    /**
+     * Extension to AttributeType for Sequences
+     * @see IMIB::AttributeType
+     */
+    typedef long SequenceAttributeType;
+    const long SEQUENCE_NAME        = TASK_NAME;
+    const long SEQUENCE_DESCRIPTION = TASK_DESCRIPTION;
+
+    /** Static information of a Sequence */
+    typedef TaskDef SequenceDef;
+
+    /** Definition of several Sequences */
+    typedef TaskDefs SequenceDefs;
+
+    /**********/
+    /* ANDdef */
+    /**********/
+
+    /**
+     * Extension to AttributeType for Alphanumeric Displays
+     * @see IMIB::AttributeType
+     */
+    typedef short ANDattributeType;
+    const short AND_NAME          = DEFAULT_NAME;
+    const short AND_DESCRIPTION   = DEFAULT_DESCRIPTION;
+    const short AND_ISAND64       = 0x0004;
+
+    /** Definition of a Parameter in an Alphanumeric Display */
+    struct ANDparamDef
+    {
+        string m_name;
+        string m_description;
+        short m_orderInDisplay;   // 0...63
+        ParamValueType m_initValue;
+        IBASE::Radix m_format;
+        string m_unit;
+        boolean m_displayIfInvalid;
+    };
+
+    /** Definition of all Parameters in an Alphanumeric Display */
+    typedef sequence<ANDparamDef> ANDparamDefs;
+
+    /** Definition of an AND (Alphanumeric Display) */
+    struct ANDdef
+    {
+        string m_name;
+        string m_description;
+        boolean m_isAND64;
+        ANDparamDefs m_paramEntries;
+    };
+
+    /** Definition of several ANDs (Alphanumeric Displays) */
+    typedef sequence<ANDdef> ANDdefs;
+
+    /**********/
+    /* GRDdef */
+    /**********/
+
+    /**
+     * Extension to AttributeType for Graphical Displays
+     * @see IMIB::AttributeType
+     */
+    typedef short GRDattributeType;
+    const short GRD_NAME          = DEFAULT_NAME;
+    const short GRD_DESCRIPTION   = DEFAULT_DESCRIPTION;
+    const short GRD_PLOTTYPE      = 0x0004;
+    const short GRD_UPDATERATE    = 0x0008;
+    const short GRD_ISSCROLLING   = 0x0010;
+    const short GRD_AUTOHARDCOPY  = 0x0020;
+    const short GRD_XPARAMETERNO  = 0x0040;
+    const short GRD_COLOR         = 0x0080;
+    const short GRD_DURATION      = 0x0100;
+    const short GRD_XAXISPOINTS   = 0x0200;
+    const short GRD_YAXISPOINTS   = 0x0400;
+    const short GRD_XGRIDLINES    = 0x0800;
+    const short GRD_YGRIDLINES    = 0x1000;
+
+    /** Layout style of a Graphical Display */
+    typedef char PlotType;
+    const char FULL_SCREEN    = 'F';
+    const char HALF_SCREEN    = 'H';
+    const char QUARTER_SCREEN = 'Q';
+    const char SLICED_SCREEN  = 'S';
+
+    /** Marker style of graph points */
+    typedef char Marker;
+    const char POINT   = 'P';
+    const char CROSS   = 'C';
+    const char PLUS    = 'p';
+    const char CIRCLE  = 'c';
+    const char STAR    = 'S';
+    const char DIAMOND = 'D';
+    const char SQUARE  = 's';
+
+    /** Line style of a graph in a plot */
+    typedef char LineStyle;
+    const char NONE      = 'N';
+    const char SOLID     = 'S';
+    const char LONGDASH  = 'L';
+    const char SHORTDASH = 's';
+    const char DOT       = 'D';
+    const char DASHDOT   = 'd';
+
+    /** Definition of a Parameter in a Graphical Display */
+    struct GRDparamDef
+    {
+        ANDparamDef m_andInfo;
+        short m_plotArea;   // 0...7 (-1 for x axis parameter)
+        double m_maxValue;
+        double m_minValue;
+        IBASE::Color m_color;
+        Marker m_marker;
+        LineStyle m_lineStyle;
+    };
+
+    /** Definition of all Parameters in a Graphical Display */
+    typedef sequence<GRDparamDef> GRDparamDefs;
+
+    /** Definition of an GRD (Graphical Display) */
+    struct GRDdef
+    {
+        string m_name;
+        string m_description;
+        PlotType m_plotType;
+        long m_updateRate;
+        boolean m_isScrolling;
+        boolean m_autoHardCopy;
+        short m_xParameterNo;   // if parameter for the x axis, otherwise -1
+        IBASE::Color m_color;
+        double m_duration;      // seconds
+        short m_xAxisPoints;
+        short m_yAxisPoints;
+        short m_xGridLines;
+        short m_yGridLines;
+        GRDparamDefs m_paramEntries;
+    };
+
+    /** Definition of several GRDs (Graphical Displays) */
+    typedef sequence<GRDdef> GRDdefs;
+
+    /**********/
+    /* SCRdef */
+    /**********/
+
+    /**
+     * Extension to AttributeType for Scrolling Displays
+     * @see IMIB::AttributeType
+     */
+    typedef short SCRattributeType;
+    const short SCR_NAME          = DEFAULT_NAME;
+    const short SCR_DESCRIPTION   = DEFAULT_DESCRIPTION;
+    const short SCR_UPDATERATE    = 0x0004;
+
+    /** Definition of a Parameter in a Scrolling Display */
+    struct SCRparamDef
+    {
+        ANDparamDef m_andInfo;
+        boolean m_updateWhenScroll;
+    };
+
+    /** Definition of all Parameters in a Scrolling Display */
+    typedef sequence<SCRparamDef> SCRparamDefs;
+
+    /** Definition of a SCR (Scrolling Display) */
+    struct SCRdef
+    {
+        string m_name;
+        string m_description;
+        long m_updateRate;
+        SCRparamDefs m_paramEntries;
+    };
+
+    /** Definition of several SCRs (Scrolling Displays) */
+    typedef sequence<SCRdef> SCRdefs;
+};
+
+#endif

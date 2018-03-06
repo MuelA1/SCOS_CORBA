@@ -1,0 +1,134 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE	- Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef IBASE_IF_idl
+#define IBASE_IF_idl
+
+#include "IBASE.idl"
+
+/**
+ * Basic interfaces
+ *
+ * @version $RCSfile: IBASE_IF.idl,v $ $Revision: 1.16 $ - $Date: 2002/03/05 11:25:07 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module IBASE_IF
+{
+    /*********/
+    /* Model */
+    /*********/
+
+    interface View;
+
+    /** Root class of all registerable interfaces */
+    interface Model
+    {
+        /**
+         * unregistration of a view for notifications
+         * @returns false if not registered
+         */
+        boolean unregisterView(in long p_viewKey);
+
+        /**
+         * disable/enable notification
+         * @returns false if already disabled/enabled or not registered
+         */
+        boolean setNotification(in long p_viewKey, in boolean p_enabled);
+    };
+
+    /********/
+    /* View */
+    /********/
+
+    /** Root class of all notificatable interfaces */
+    interface View
+    {
+      /** Called after buffer overflow on the server side */
+      void notifyOverflow();
+
+      /** Called after buffer overflow on the server side */
+      oneway void owNotifyOverflow();
+    };
+
+    /**********/
+    /* Server */
+    /**********/
+
+    /**
+     * Encapsulates a special type of CORBA server processes: These processes
+     * can be locked. After this is done the server is exclusive for the client
+     * and the server manager skips the serve when a new client searches one.
+     */
+    interface Server
+    {
+        /**
+         * Allocation of the server, so that the server is private for a client
+         * until the server is released.
+         * @returns false if already locked
+         * @parm p_client: required for checking the client connection. The
+         * server is automatically unlocked if the client connection is lost.
+         * @see IBASE_IF::Server::unlock
+         */
+        boolean lock(in Object p_client);
+
+        /**
+         * deallocation of the server
+         * @returns false if already unlocked
+         */
+        boolean unlock();
+
+        /**
+         * doesn't block the client but is therefore unsafe
+         * @see IBASE_IF::Server::unlock
+         */
+        oneway void unsafeUnlock();
+
+        /** contained objects could be found over their name */
+        Object getObject(in string p_name) raises(IBASE::NotFound);
+    };
+
+    /**************/
+    /* ServerMngr */
+    /**************/
+
+    /**
+     * Manager of server processes. Used for searching an server.
+     */
+    interface ServerMngr
+    {
+        /**
+         * Accessor to a server. This server must be unlocked directly
+         * @see IBASE_IF::Server::lock
+         */
+        Server getServer() raises(IBASE::NotFound);
+
+        /**
+         * !!! Private interface for the servers,
+         * dont't use it from the client !!!
+         */
+        long privateConnect(in Server p_server);
+
+        /**
+         * !!! Private interface for the servers,
+         * dont't use it from the client !!!
+         * @see IBASE_IF::Server::lock
+         */
+        boolean privateLock(in long p_serverKey);
+
+        /**
+         * !!! Private interface for the servers,
+         * dont't use it from the client !!!
+         * @see IBASE_IF::Server::unlock
+         */
+        boolean privateUnlock(in long p_serverKey);
+    };
+};
+
+#endif

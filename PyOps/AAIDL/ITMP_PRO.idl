@@ -1,0 +1,159 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2002 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria            */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITMP_PRO_idl
+#define ITMP_PRO_idl
+
+#include "ITMP.idl"
+#include "ICLOCK_PRO.idl"
+
+/**
+ * Interface(s) for TM Packet Data Provision
+ *
+ * @version ITMP_PRO.idl 1.3 - 02/12/12 10:25:20
+ *
+ * @author Stefan Korner
+ * @author Renate Huber
+ */
+module ITMP_PRO
+{
+    /****************/
+    /* TMpacketMngr */
+    /****************/
+
+    interface TMpacketMngrView;
+
+    /** Serverside manager for TM Packet Data Provision */
+    interface TMpacketMngr: IBASE_IF::Model
+    {
+        /**
+         * registration for TM packet notification
+         * @parm p_view the client view object to react on CORBA notifications
+         * @parm p_packetFilter the packet filter on transmission level (selection);
+         * if it is invalid: no registration
+         * @parm p_transmFilter the packet transmission filter (projection)
+         * @returns long the registration key; if 0, registration failed (invalid filter)
+         */
+        long registerTMpackets(in TMpacketMngrView p_view,
+                               in ITMP::TMpacketFilter p_packetFilter,
+                               in ITMP::TransmissionFilter p_transmFilter);
+
+        /**
+         * deregistration for TM packet notification
+         * @parm p_viewKey the registration key
+         * @returns false if not registered
+         */
+        boolean unregisterTMpackets(in long p_viewKey);
+
+        /**
+         * modify the TM packet filter criterias
+         * @parm p_viewKey the registration key
+         * @parm p_packetFilter the packet filter on transmission level (selection);
+         * if it is invalid: no filter modification
+         * @returns false if invalid filter
+         */
+        boolean modifyTMpacketFilter(in long p_viewKey,
+                                     in ITMP::TMpacketFilter p_packetFilter);
+
+        /**
+         * modification of the transmission flags
+         * @parm p_viewKey the registration key
+         * @parm p_transmFilter the packet transmission filter (projection)
+         * @returns false if the view is not registered
+         */
+        boolean modifyTransmissionFilter(in long p_viewKey,
+                                         in ITMP::TransmissionFilter p_transmFilter);
+
+        /**
+         * accessor for actual data
+         * @parm p_viewKey the registration key
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITMP::TMpacketNotifyDatas getFullData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+
+        /**
+         * iterator for the retrivial mode
+         * @parm p_viewKey the registration key
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITMP::TMpacketNotifyDatas getNextData(in long p_viewKey)
+            raises(ICLOCK::NotPossible);
+    };
+
+    /********************/
+    /* TMpacketMngrView */
+    /********************/
+
+    /** Receiver for TM packet data */
+    interface TMpacketMngrView: IBASE_IF::View
+    {
+        /** callback for TM packet notifications 
+         * @parm p_data the sequence of TMpacketNotifyData
+         */
+       void notifyTMpackets(in ITMP::TMpacketNotifyDatas p_data);
+    };
+
+    /*************/
+    /* TMPserver */
+    /*************/
+
+    /** Server for TM packet data */
+    interface TMPserver: ICLOCK_PRO::TimingServer
+    {
+        readonly attribute TMpacketMngr m_packetMngr;
+    };
+
+    /*****************/
+    /* TMPserverMngr */
+    /*****************/
+
+    /** Manages multiple TM packet servers */
+    interface TMPserverMngr: ICLOCK_PRO::TimingServerMngr
+    {
+        /** default id for the naming service */
+        const string ServiceName = "TMP_PRO_001";
+
+        /**
+         * accessor to a TM packet server
+         * @parm p_shared true if shared server shall be retrieved, false otherwise
+         * @returns TMPserver the reference to the TMPserver
+         * @raises IBASE::NotFound if there is already no server or there is
+         * no exclusive server when p_shared == false
+         */
+        TMPserver getTMPserver(in boolean p_shared) raises(IBASE::NotFound);
+    };
+
+    /***********************/
+    /* TMPhistoryQueryMngr */
+    /***********************/
+
+    /** Server for retrieving all TM packet data of a single TM packet */
+    interface TMPhistoryQueryMngr
+    {
+        /** default id for the naming service */
+        const string ServiceName = "TMPQ_PRO_001";
+
+        /**
+         * accessor for history data
+         * @parm p_filingKey SCOS-2000 packet ID (SPID)
+         * @parm p_streamId datastream
+         * @parm p_createTime SCOS-2000 packet creation time
+         * @parm p_filingTime onboard time
+         * @returns ITMP::TMpacketNotifyData full packet data of a single packet
+         * @raises ICLOCK::NotPossible if invalid time context
+         */
+        ITMP::TMpacketNotifyData getHistoryData(in unsigned long p_filingKey,
+                                                in unsigned short p_streamId,
+                                                in IBASE::Time p_createTime,
+                                                in IBASE::Time p_filingTime)
+            raises(ICLOCK::NotPossible);
+    };
+};
+
+#endif

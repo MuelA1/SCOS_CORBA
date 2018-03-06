@@ -1,0 +1,77 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITM_INJ_idl
+#define ITM_INJ_idl
+
+#include "ITM.idl"
+
+/**
+ * Interface(s) for Telemetry Parameter Injection
+ *
+ * @version $RCSfile: ITM_INJ.idl,v $ $Revision: 1.4 $ - $Date: 2003/06/20 09:10:41 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITM_INJ
+{
+    /*******************/
+    /* ParamInjectMngr */
+    /*******************/
+
+    /** Manages the parameter injection */
+    interface ParamInjectMngr
+    {
+        /** default id for the maming service */
+        const string ServiceName = "TM_INJ_001";
+
+        /** provides the SCOS-2000 UTC time */
+        IBASE::Time getUTC();
+
+        /**
+         * allows the external application to check the time used by the
+         * SCOS-2000 system and to detect whether SCOS-2000 system is currently
+         * using a simulation time
+         */
+        IBASE::Time getDeltaTimeToUTC();
+        /** provides the default datastream */
+        long getDefaultDataStream();
+
+        /** provides the default spacecraft ID */
+        string getDefaultSpacecraftID();
+
+        /** inject a single parameter */
+        void injectParameter(in ITM::InjectParam p_param,
+                             in string p_sourceID,
+                             in IBASE::Time p_packetTime,
+                             in long p_datastream,
+                             in string p_spacecraft)
+            raises(IBASE::NotFound, IBASE::NotProcessed);
+
+        /** inject a single parameter with default arguments */
+        void injectParameterWithDefaults(in ITM::InjectParam p_param,
+                                         in string p_sourceID)
+            raises(IBASE::NotFound, IBASE::NotProcessed);
+
+        /** inject multiple parameters */
+        void injectParameters(in ITM::InjectParams p_params,
+                              in string p_sourceID,
+                              in IBASE::Time p_packetTime,
+                              in long p_datastream,
+                              in string p_spacecraft)
+            raises(IBASE::NotFound, IBASE::NotProcessed);
+
+        /** inject multiple parameters with default arguments */
+        void injectParametersWithDefaults(in ITM::InjectParams p_params,
+                                          in string p_sourceID)
+            raises(IBASE::NotFound, IBASE::NotProcessed);
+    };
+};
+
+#endif

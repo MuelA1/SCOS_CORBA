@@ -1,0 +1,312 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITC_idl
+#define ITC_idl
+
+#include "IBASE.idl"
+
+/**
+ * Command Type(s)
+ *
+ * @version $RCSfile: ITC.idl,v $ $Revision: 1.27 $ - $Date: 2003/12/15 11:01:30 $ 
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITC
+{
+    /****************/
+    /* CommandValue */
+    /****************/
+
+    /** Status flags of a command */
+    typedef long CommandFlags;
+    const long IS_IN_GROUP           = 0x00000001;
+    const long IS_GROUP_START        = 0x00000002;
+    const long IS_GROUP_MIDDLE       = 0x00000004;
+    const long IS_GROUP_END          = 0x00000008;
+
+    const long IS_IN_BLOCK           = 0x00000010;
+    const long IS_BLOCK_START        = 0x00000020;
+    const long IS_BLOCK_MIDDLE       = 0x00000040;
+    const long IS_BLOCK_END          = 0x00000080;
+
+    const long IS_TIMETAGGED         = 0x00000100;
+    const long IS_PTV_CHECK_AT_SRC   = 0x00000200;
+
+    const long IS_RELEASE_FAILED     = 0x00001000;
+    const long IS_UV_FAILED          = 0x00002000;
+    const long IS_VER_FINAL_OK       = 0x00004000;
+
+    const long PTC_NOTIFICATION      = 0x00010000;
+    const long CEV_NOTIFICATION      = 0x00020000;
+
+    const long HAS_UNCERTAIN_PASSED_STAGES = 0x00040000;
+    const long HAS_UNVERIFIED_STAGES       = 0x00080000;
+    const long HAS_IDLE_STAGES             = 0x00100000;
+    const long HAS_PENDING_STAGES          = 0x00200000;
+    const long HAS_DISABLED_STAGES         = 0x00400000;
+    const long HAS_FAILED_STAGES           = 0x00800000;
+    const long HAS_UNCERTAIN_FAILED_STAGES = 0x01000000;
+    const long HAS_UNKNOWN_STAGES          = 0x02000000;
+    const long HAS_AFFECTED_STAGES         = 0x04000000;
+    const long HAS_SUPERSEDED_STAGES       = 0x08000000;
+    const long HAS_TIMEOUT_STAGES          = 0x10000000;
+    const long HAS_ASSUMED_STAGES          = 0x20000000;
+    const long HAS_SCC_STAGES              = 0x40000000;
+
+    /** Type of application where the command was released */
+    typedef octet SourceType;
+    const short MANUAL_STACK = 0x0001;
+    const short AUTO_STACK   = 0x0002;
+    const short EXT_SOURCE   = 0x0004;
+    const short TC_SPACON    = 0x0008;
+    const short OBQM_DISP    = 0x0010;
+
+    /**
+     * Used to indicate whether PTV and CEV checks are performed.
+     * CHECK_NO_NOTIFICATION is only used for command injection to specify
+     * that the check is enabled but the external source does not want to be
+     * notified.
+     */
+    typedef char CheckStateType;
+    const char CHECK_ENABLED         = 'E';
+    const char CHECK_DISABLED        = 'D';
+    const char CHECK_OVERRIDE        = 'O';
+    const char CHECK_NO_NOTIFICATION = 'N';
+
+   /**
+    * Time tagged Command Request final On-Board Queue status
+    * (at execution time)
+    */
+   typedef char TimeTaggedRqstObqStatus;
+   const TimeTaggedRqstObqStatus TT_ASSUMED_DELETED = 'A';
+   const TimeTaggedRqstObqStatus TT_DELETED         = 'd';
+   const TimeTaggedRqstObqStatus TT_FAILED_LOAD     = 'F';
+   const TimeTaggedRqstObqStatus TT_ENABLED         = 'E';
+   const TimeTaggedRqstObqStatus TT_DISABLED        = 'D';
+   const TimeTaggedRqstObqStatus TT_UNKNOWN         = 'U';
+
+    /** Type of interlocking */
+    typedef char InterlockType;
+    const char IL_NONE             = 'N';
+    const char IL_LOCAL            = 'L';
+    const char IL_GLOBAL           = 'G';
+    const char IL_SUBSYS_LOCAL     = 'l';
+    const char IL_SUBSYS_GLOBAL    = 'g';
+    const char IL_FAIL_ONLY_LOCAL  = 'F';
+    const char IL_FAIL_ONLY_SUBSYS = 'f';
+
+    /** State of the command at a stage */
+    typedef short CEVstageStatus;
+    const short NOT_APPLICABLE   = 0x0001;
+    const short PASSED           = 0x0002;
+    const short UNCERTAIN_PASSED = 0x0004;
+    const short UNVERIFIED       = 0x0008;
+    const short IDLE             = 0x0010;
+    const short PENDING          = 0x0020;
+    const short DISABLED         = 0x0040;
+    const short FAILED           = 0x0080;
+    const short UNCERTAIN_FAILED = 0x0100;
+    const short UNKNOWN          = 0x0200;
+    const short AFFECTED         = 0x0400;
+    const short SUPERSEDED       = 0x0800;
+    const short TIMEOUT          = 0x1000;
+    const short ASSUMED          = 0x2000;
+    const short SCC              = 0x4000;
+
+    /** Stage of the command */
+    typedef char Stage;
+    const char PTV_DYNAMIC   = 'D';
+    const char PTV_STATIC    = 's';
+    const char MCS_RELEASE   = 'R';
+    const char UV_GS_RECEIVE = 'G';
+    const char UV_GS_UPLINK  = 'T';
+    const char UV_ONB_ACCEPT = 'O';
+    const char EV_APP_ACCEPT = 'A';
+    const char EV_START_EXEC = 'S';
+    const char EV_PROGRESS_0 = '0';
+    const char EV_PROGRESS_1 = '1';
+    const char EV_PROGRESS_2 = '2';
+    const char EV_PROGRESS_3 = '3';
+    const char EV_PROGRESS_4 = '4';
+    const char EV_PROGRESS_5 = '5';
+    const char EV_PROGRESS_6 = '6';
+    const char EV_PROGRESS_7 = '7';
+    const char EV_PROGRESS_8 = '8';
+    const char EV_PROGRESS_9 = '9';
+    const char EV_END_EXEC   = 'C';
+
+    /** Detail of the command at a stage */
+    struct VerifyDetail
+    {
+        Stage m_verifyStage;
+        CEVstageStatus m_stageStatus;
+    };
+
+    /** Stage of the command at different stages */
+    typedef sequence<VerifyDetail> VerifyDetails;
+
+    /** Data of a command parameter */
+    struct CommandParam
+    {
+        string m_name;
+        boolean m_isEngValue;   // otherwise: raw
+        string m_unit;          // the unit of the parameter
+        IBASE::Radix m_radix;   // meaningful only if m_values are integers 
+        IBASE::Variant m_value;
+    };
+
+    /** Parameters of a command */
+    typedef sequence<CommandParam> CommandParams;
+
+    /**
+     * Contains data regarding a request id. Used in several contexts. Each
+     * command request issued in SCOS-2000 has a unique request I.D. (called
+     * a "ticket"). The ticket is made up of an entity I.D. (m_id) and an
+     * index (m_elemIndex). The latter is used only when a group or block of
+     * commands is issued.
+     */
+    struct RequestID
+    {
+        unsigned long m_id;
+        unsigned short m_elemIndex;
+    };
+
+    typedef char ServiceMode;
+    const ServiceMode SM_PKT = 'P';
+    const ServiceMode SM_CLTU = 'C';
+    const ServiceMode SM_UNDEFINED = ' ';
+
+    typedef char TransmissionMode;
+    const TransmissionMode TM_AD = 'A';
+    const TransmissionMode TM_BD = 'B';
+    const TransmissionMode TM_UNDEFINED = ' ';
+
+    typedef char FrameType;
+    const FrameType FT_AD_FRAME  = 'A';
+    const FrameType FT_BD_FRAME  = 'B';
+    const FrameType FT_BC_FRAME  = 'C';
+    const FrameType FT_UNDEFINED = ' ';
+ 
+    // 32 bit type for command IDs
+    typedef unsigned long TCrequestID;
+
+    struct TransmissionFilter
+    {
+        boolean m_transmitData;
+        boolean m_transmitPacketHeader;
+        boolean m_transmitPacketHeaderRawData;
+        boolean m_transmitPacketBodyRawData;
+    };
+
+    struct PacketHeader
+    {
+        //common base class data
+        IBASE::CommonPktHeader m_commonHeader;
+
+        //TDEVSIItlcPktHdr
+        IBASE::Time    m_UplinkTime;
+        IBASE::Time    m_ExecutionTime;
+        IBASE::Time    m_LastUpdateTime;
+        unsigned long  m_RequestId;
+        unsigned short m_RequestElemIndex;
+        unsigned short m_VarHdrSize;
+        unsigned short m_PUSapid;
+        unsigned short m_PUSsrcSeqCount;
+        octet          m_PUSserviceType;
+        octet          m_PUSserviceSubType;
+        octet          m_PUSackFlags;
+        octet          m_UplinkFlag;
+        octet          m_CmdSourceHost;
+        octet          m_CmdSourceType;
+        
+        //derived data
+        boolean m_highPriority;
+        char m_mapId;
+        boolean m_group;
+        boolean m_block;
+        unsigned long m_requestSize;
+        string m_requestType;
+        ServiceMode m_serviceMode;
+        TransmissionMode m_transmissionMode;
+        char m_vcId;
+        FrameType m_frameType;
+        unsigned long m_frameCount;
+    };
+    
+    typedef sequence <PacketHeader> PacketHeaders;
+    
+    struct PacketData
+    {
+        PacketHeaders m_pktHeader;
+        IBASE::ByteString m_pktHeaderRawData;
+        IBASE::ByteString m_pktBodyRawData;
+    };
+    
+    /** Packet header information of several parameters */
+    typedef sequence <PacketData> PacketDatas;
+
+    /** Data of a command */
+    struct CommandValue
+    {
+        string m_name;
+        IBASE::Time m_releaseTime;
+        IBASE::Time m_executionTime;
+        IBASE::Time m_lastUpdateTime;
+        string m_sourceName;
+        SourceType m_sourceType;
+        string m_subsystem;
+        RequestID m_requestId;
+        string m_sequenceName;
+        CommandFlags m_flags;
+        TimeTaggedRqstObqStatus m_ttObqStatus;
+        InterlockType m_interlockType;
+        Stage m_interlockStage;
+        CheckStateType m_staticPTVstatus;
+        CheckStateType m_dynamicPTVstatus;
+        CheckStateType m_cevStatus;
+        VerifyDetails m_verifyDetails;
+        CommandParams m_parameters;
+        IBASE::ByteString m_rawData;
+        TCrequestID       m_tcRequestID;
+
+        long m_tcPktDataIndex;
+    };
+
+    /** List of commands */
+    typedef sequence<CommandValue> CommandValues;
+
+    struct CommandNotifyData
+    {
+        CommandValues m_commands;
+        PacketDatas m_pktData;
+    };
+
+    /*****************/
+    /* CommandFilter */
+    /*****************/
+
+    /** Filter for a command */
+    struct CommandFilter
+    {
+        boolean m_releaseTimeOrder;      // otherwise: execution time order
+        boolean m_enableVerifyDetails;   // otherwise: empty list returned
+        boolean m_enableParameters;      // otherwise: empty list returned
+        boolean m_enableRawData;         // otherwise: empty string returned
+        string m_name;                   // regular expression
+        string m_sourceName;             // regular expression
+        SourceType m_sourceType;         // tags can be or'ed
+        string m_subsystem;              // regular expression
+        string m_sequenceName;           // regular expression
+        VerifyDetails m_verifyDetails;   // only relevant if enableVerifyDetails
+    };
+};
+
+#endif

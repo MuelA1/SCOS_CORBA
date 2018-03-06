@@ -1,0 +1,48 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE	- Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef IUSER_IF_idl
+#define IUSER_IF_idl
+
+#include "IBASE.idl"
+
+/**
+ * Interface(s) for user settings
+ *
+ * @version $RCSfile: IUSER_IF.idl,v $ $Revision: 1.10 $ - $Date: 2003/06/20 09:10:42 $ 
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module IUSER_IF
+{
+    /************/
+    /* UserMngr */
+    /************/
+
+    /** Access to user settings */
+    interface UserMngr
+    {
+        /** default id for the naming service */
+        const string ServiceName = "USER_001";
+
+        /**
+         * sets the user data
+         * @raises IBASE::NotFound when an invalid userName
+         */
+        void setUserData(in string p_userName,
+                         in IBASE::ByteString p_data) raises(IBASE::NotFound); 
+        /**
+         * reads the user data
+         * @raises IBASE::NotFound when an invalid userName
+         */
+        IBASE::ByteString getUserData(in string p_userName) 
+	                 raises(IBASE::NotFound); 
+    };
+};
+
+#endif

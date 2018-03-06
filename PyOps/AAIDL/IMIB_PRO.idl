@@ -1,0 +1,118 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE	- Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef IMIB_PRO_idl
+#define IMIB_PRO_idl
+
+#include "IMIB.idl"
+
+/**
+ * Interface(s) for MIB  (Mission Information Base) access:
+ * There are iterators for accessing different types of static data of the
+ * SCOS-2000 MCS. Each iterator interface has a generic part and a specific
+ * (typesafe) part.
+ *
+ * @version $RCSfile: IMIB_PRO.idl,v $ $Revision: 1.18 $ - $Date: 2003/06/20 09:10:40 $ 
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module IMIB_PRO
+{
+    /***********/
+    /* MIBmngr */
+    /***********/
+
+    /**
+     * Generic interface for all iterators. 
+     * Note: All operations with a name list (p_names) as input allow the
+     * selection of entities matching the names. If the names list is empty,
+     * then all entities are returned.
+     */
+    interface DefIterator
+    {
+        /** for replication of static data */
+        IBASE::Time getLastChanges();
+
+        /** returns the count of definition entries */
+        long getCount();
+
+        /** list with names of definition entries */
+        IBASE::Strings getNames();
+
+        /**
+         * provides the definition entries as table
+         * @parm p_attributes is a bitset of or'ed attribute flags
+         */
+        IMIB::DataTable getDefsAsTable(in IBASE::Strings p_names,
+                                       in IMIB::AttributeType p_attributes);
+    };
+
+    /** Access to static Telemetry Parameter data */
+    interface ParamDefIterator: DefIterator
+    {
+        IMIB::ParamDef getDef(in string p_name) raises(IBASE::NotFound);
+        IMIB::ParamDefs getDefs(in IBASE::Strings p_names);
+    };
+
+    /** Access to static Command data */
+    interface CommandDefIterator: DefIterator
+    {
+        IMIB::CommandDef getDef(in string p_name) raises(IBASE::NotFound);
+        IMIB::CommandDefs getDefs(in IBASE::Strings p_names);
+    };
+
+    /** Access to static Sequence data */
+    interface SequenceDefIterator: DefIterator
+    {
+        IMIB::SequenceDef getDef(in string p_name) raises(IBASE::NotFound);
+        IMIB::SequenceDefs getDefs(in IBASE::Strings p_names);
+    };
+
+    /** Access to static Alphanumeric Display data */
+    interface ANDdefIterator: DefIterator
+    {
+        IMIB::ANDdef getDef(in string p_name) raises(IBASE::NotFound);
+        IMIB::ANDdefs getDefs(in IBASE::Strings p_names);
+    };
+
+    /** Access to static Graphical Display data */
+    interface GRDdefIterator: DefIterator
+    {
+        IMIB::GRDdef getDef(in string p_name) raises(IBASE::NotFound);
+        IMIB::GRDdefs getDefs(in IBASE::Strings p_names);
+    };
+
+    /** Access to static Scrolling Display data */
+    interface SCRdefIterator: DefIterator
+    {
+        IMIB::SCRdef getDef(in string p_name) raises(IBASE::NotFound);
+        IMIB::SCRdefs getDefs(in IBASE::Strings p_names);
+    };
+
+    /** Access to MIB data, provides the different iterators. */
+    interface MIBmngr
+    {
+        /** default id for the maming service */
+        const string ServiceName = "MIB_PRO_001";
+
+        /** provides the iterator for Telemetry Parameter data */
+        ParamDefIterator getParamDefIterator();
+        /** provides the iterator for Command data */
+        CommandDefIterator getCommandDefIterator();
+        /** provides the iterator for Sequence data */
+        SequenceDefIterator getSequenceDefIterator();
+        /** provides the iterator for Alphanumeric Display data */
+        ANDdefIterator getANDdefIterator();
+        /** provides the iterator for Graphical Display data */
+        GRDdefIterator getGRDdefIterator();
+        /** provides the iterator for Scrolling Display data */
+        SCRdefIterator getSCRdefIterator();
+    };
+};
+
+#endif

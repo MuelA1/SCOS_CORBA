@@ -1,0 +1,461 @@
+//--------------------------------------------------------------------------
+//
+// (C) 2000     European Space Agency
+//              European Space Operations Centre
+//              Darmstadt, Germany
+//
+// -------------------------------------------------------------------------
+//
+// System       : SCOS-2000 - the Satellite Control and Operations System
+//
+// Sub-System   : ECH
+//
+// File Name    : ITC_INJ.idl
+//
+// Author       : Sam Cooper
+//
+// Creation Date: August 2000
+//
+// Description  : Interface definition for the command injection service
+//
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+#ifndef ITC_INJ_idl
+#define ITC_INJ_idl
+
+
+// -- Includes
+#include "ITC.idl"
+
+
+// -- Constants, Enums, Typedefs
+
+// namespace for Command Injection Service
+module ITC_INJ
+{
+  // Represents the state of an interlock
+  typedef char InterlockStateType;
+  const char IL_GO   = 'G';
+  const char IL_WAIT = 'W';
+  const char IL_FAIL = 'F';
+
+  // Represents the state of a TM/TC link
+  typedef char LinkStateType;
+  const char LINK_UP   = 'U';
+  const char LINK_DOWN = 'D';
+
+  // ID representing OBQ system
+  typedef unsigned short ObqmID;
+
+  // OBQM space status pair - indicates if a queue is full
+  struct ObqmSpaceStatus
+  {
+    ObqmID  m_queueId;
+    boolean m_spaceAvailable;
+  };
+
+  // Sequence of OB queue status
+  typedef sequence<ObqmSpaceStatus> ObqmSpaceStatusSeqType;
+
+
+  // Shows the state of the system TC links
+  struct SystemLinkStatus
+  {
+    LinkStateType m_tc_gs_link_status;
+    LinkStateType m_tc_nctrs_link_status;
+    LinkStateType m_tc_spacon_link_status;
+    LinkStateType m_tc_uv_link_status;
+    LinkStateType m_tc_tm_flow_status;
+  };
+
+  // Gives information about Master Manual Mode
+  struct MMMstatus
+  {
+    string  m_host;
+    boolean m_active;
+  };
+
+  // Interlock status update structure
+  struct InterlockStatus
+  {
+    ITC::RequestID     m_request_id;
+    ITC::InterlockType m_il_type;
+    InterlockStateType m_il_status;
+  };
+
+  // Represents the overall system status
+  struct SystemStatus
+  {
+    InterlockStatus        m_global_il_status;  
+    SystemLinkStatus       m_link_status;
+    ITC::CheckStateType    m_ptv_stat_check_status;
+    ITC::CheckStateType    m_ptv_dyn_check_status;
+    ITC::CheckStateType    m_cev_check_status;
+    MMMstatus              m_mmm_status;
+    ObqmSpaceStatusSeqType m_obqm_space_status;
+  };
+
+
+  // Gives the possible stages to interlock on
+  typedef char InterlockStageType;
+  const char IL_UV_GS_ACCEPT     = 'G';
+  const char IL_UV_GS_UPLINK     = 'U';
+  const char IL_UV_SC_ONB_ACCEPT = 'O';
+  const char IL_EV_ACCEPT        = 'E';
+  const char IL_EV_COMPLETE      = 'C';
+
+  // Give the possible notification modes for injection
+  typedef char NotificationType;
+  const char NOTIFY_ALL     = 'A';
+  const char NOTIFY_SUMMARY = 'S';
+
+  // Injection request ID returned from interface
+  //   - unique to each CommandInjectMngr
+  typedef unsigned long InjectRequestID;
+
+  // Notification update struct sent to the CommandInjectMngrView
+  struct NotificationInfo
+  {
+    InjectRequestID     m_request_id;
+    ITC::RequestID      m_multiplexer_id;
+    ITC::Stage          m_stage;
+    ITC::CEVstageStatus m_stage_status;
+    boolean             m_completed_flag;
+    IBASE::Time         m_updateTime;        
+    ITC::TCrequestID         m_tcRequestID;
+  };
+
+  // Ack flags
+  typedef octet AckFlagType;
+  // PUS_ACK_* constants are for convenience only.
+  // With other packets, the meaning of a bit may be different.
+  const short PUS_ACK_ACCEPT   = 0x01;
+  const short PUS_ACK_START    = 0x02;
+  const short PUS_ACK_PROGRESS = 0x04;
+  const short PUS_ACK_COMPLETE = 0x08;
+  const short ACK_MIB_DEFAULT  = 0x80; // Use default value from MIB
+
+  // BEGIN TTA Extensions
+  // Transfer Mode
+  typedef char TransferMode;
+  const char AD_MODE = 'A';
+  const char BD_MODE = 'B';
+  // END TTA Extensions
+
+  // Common information used in Commands and Command Sequences
+  struct ReleaseInfo
+  {
+    IBASE::Time         m_releaseTime;
+    IBASE::Time         m_earliestReleaseTime;
+    IBASE::Time         m_latestReleaseTime;
+    IBASE::Time         m_executionTime;    
+    
+    ITC::CheckStateType m_staticPtvFlag;
+    ITC::CheckStateType m_dynamicPtvFlag;
+    boolean             m_cevFlag;
+
+    AckFlagType         m_ackFlags;
+  };
+
+  // Parameter set and Parameter Value set pair
+  struct ParameterSet
+  {
+    string m_parameterSet;
+    string m_valueSet;
+  };
+  
+  // Sequence to hold a set of parameter sets
+  typedef sequence<ParameterSet> ParameterSets;
+
+  // Use default virtual channel
+  const short VCID_DEFAULT = 0xFF;
+
+  // Use default mapid
+  const short MAPID_DEFAULT = 0xFF;
+
+  // Command request
+  struct CommandRequest
+  {
+    string             m_context;
+    string             m_destination;
+
+    octet              m_mapId;
+    octet              m_vcId;
+
+    string             m_cmdName;
+    ITC::CommandParams m_cmdParameters;
+    
+    ParameterSets      m_paramSets;
+    
+    ReleaseInfo        m_info;
+    
+    ITC::InterlockType m_ilockType;
+    InterlockStageType m_ilockStageType;
+ 
+    string             m_additionalInfo;
+
+    ITC::TCrequestID        m_tcRequestID;
+  };
+
+  // Sequence to hold a set of command requests
+  typedef sequence<CommandRequest> CommandRequests;
+
+  // Typedef giving block type
+  typedef char BlockType;
+  const char BLOCK_CMD      = 'C';
+  const char BLOCK_MISSION  = 'M';
+
+  // Command Block request - uses above typedef to give mission
+  //   specific interpretation
+  struct CommandRequestBlock
+  {
+    BlockType       m_type;
+    CommandRequests m_block;
+  };
+
+  // Command sequence request
+  struct SequenceRequest
+  {
+    string             m_context;
+    string             m_destination;
+    
+    string             m_seqName;
+    ITC::CommandParams m_seqParameters;
+    
+    ParameterSets      m_paramSets;
+    
+    ReleaseInfo        m_info;
+    boolean            m_applyInfoToCommands;
+    boolean            m_bConvertToImmediate;
+    
+    string             m_additionalInfo;
+
+    ITC::TCrequestID        m_tcRequestID;
+  };
+
+  // Typedef of different group element types
+  typedef char GroupType;
+  const char GROUP_CMD      = 'G';
+  const char GROUP_BLOCK    = 'B';
+  const char GROUP_SEQUENCE = 'S';
+  const char GROUP_MISSION  = 'M';
+
+  // Single group element
+  union GroupElement switch (GroupType)
+  {
+  case GROUP_CMD:
+    CommandRequest m_cmd;
+    
+  case GROUP_BLOCK:
+    CommandRequestBlock m_block;
+    
+  case GROUP_SEQUENCE:
+    SequenceRequest m_sequence;
+    
+  case GROUP_MISSION:
+    CommandRequest m_mission;
+  };
+
+  // Group request of group elements
+  typedef sequence<GroupElement> GroupRequest;
+
+
+  
+  //---------------------------------------------------------------------------
+  //
+  // INTERFACE: CommandInjectMngrView
+  //
+  // INTERFACE DESCRIPTION: Interface provided by external command source
+  //                          to receive status updates from the CIS
+  // 
+  //---------------------------------------------------------------------------
+  interface CommandInjectMngrView
+  {
+    // Used by a CommandInjectMngr to test a connection
+    void ping ();
+    
+    // Receive an update of a requests PTV/CEV status 
+    oneway void updateRequestStatus (in NotificationInfo status);
+    
+    // Update to current system link status
+    oneway void updateSystemStatus (in SystemStatus status);
+  };
+  //---------------------------------------------------------------------------
+
+
+  //---------------------------------------------------------------------------
+  //
+  // INTERFACE: CommandInjectMngr
+  //
+  // INTERFACE DESCRIPTION: Command Injection interface
+  // 
+  //---------------------------------------------------------------------------
+  interface CommandInjectMngr
+  {
+    // exception thrown by inject methods
+    exception InjectionFailed
+    {
+      // freeform string giving reason for injection failure
+      string reason;
+    };
+
+    //*******************************************************
+    // Connection methods
+    //*******************************************************
+
+    // Can be used by a CommandInjectMngrView to test a connection
+    void ping ();
+
+    // Used to inform CommandInjectMngr that CommandInjectMngrView has
+    //   finished with it and to close the connection
+    void deregister ();
+
+
+    //*******************************************************
+    // Injection methods
+    //*******************************************************
+
+    // Inject a single command
+    InjectRequestID injectCmd (in CommandRequest obj)
+      raises (InjectionFailed);
+    
+    // Inject a command block
+    InjectRequestID injectCmdBlock (in CommandRequestBlock block)
+      raises (InjectionFailed);
+    
+    // Inject a command sequence
+    InjectRequestID injectSeq (in SequenceRequest seq,
+			       in NotificationType notify)
+      raises (InjectionFailed);
+    
+    // Inject a group of commands, blocks and sequences
+    InjectRequestID injectGroup (in GroupRequest group)
+      raises (InjectionFailed);
+    
+    // Inject a stack file
+    InjectRequestID injectStackFile (in string filename,
+				     in NotificationType notify)
+      raises (InjectionFailed);
+    
+    // Inject a Tpf file
+    InjectRequestID injectTpfFile (in string filename,
+				   in NotificationType notify)
+      raises (InjectionFailed);
+    
+
+    //*******************************************************
+    // Mode methods
+    //*******************************************************
+
+    // Changes mode to GO
+    void go ();
+
+    // Changes mode to STOP
+    void stop ();
+
+    // Returns TRUE if current mode is STOP, else FALSE
+    boolean isStopped ();
+
+    // Returns TRUE if current mode is WAIT, else FALSE
+    boolean isWaitState ();
+
+    //*******************************************************
+    // Transfer Mode methods
+    //*******************************************************
+
+    // Set the transfer mode
+    void setTransferMode (in TransferMode tMode);
+
+    // Get the transfer mode
+    TransferMode getTransferMode ();
+
+    //*******************************************************
+    // Local Interlock methods
+    //*******************************************************
+
+    // enable/disable the local interlock
+    void setLocalInterlock(in boolean p_enable);
+
+    // true if local interlock is enabled
+    boolean getLocalInterlock();
+
+    //*******************************************************
+    // Auto reject mode methods
+    //*******************************************************
+
+    // Changes auto reject mode to ON
+    void setAutoRejectModeOn ();   
+
+    // Changes auto reject mode to OFF
+    void setAutoRejectModeOff ();
+
+    // Returns TRUE if current auto reject mode is ON, else FALSE
+    boolean isAutoRejectModeOn ();
+    
+
+    //*******************************************************
+    // Buffer methods
+    //*******************************************************
+
+    // Clears the injection buffer
+    void clear ();
+
+    // Deletes a single Injection request
+    //   raises IBASE::NotFound if request does not exist
+    void delete (in InjectRequestID id)
+      raises (IBASE::NotFound);
+
+
+    //*******************************************************
+    // Path methods
+    //*******************************************************
+
+    // Sets the TPF load path
+    void setTpfPath (in string path);
+
+    // Sets the saved stack load path
+    void setSavedStackPath (in string path);
+  };
+  //---------------------------------------------------------------------------
+
+
+  //---------------------------------------------------------------------------
+  //
+  // INTERFACE: TCinjectServerMngr
+  //
+  // INTERFACE DESCRIPTION: Injection interface pool manager
+  // 
+  //---------------------------------------------------------------------------
+  interface TCinjectServerMngr
+  {
+    // Default string used in the naming service
+    // const string ServiceName = "TC_INJ_002";
+    const string ServiceName = "TC_INJ_003";
+
+    // Exception thrown when unable to get CommandInjectMngr
+    exception RegistrationFailed
+    {
+      // freeform string giving reason for failure
+      string reason;
+    }; 
+    
+    // provides the SCOS-2000 UTC time
+    IBASE::Time getUTC ();
+
+    // allows the external application to check the time used by the
+    // SCOS-2000 system and to detect whether SCOS-2000 system is currently
+    // using a simulation time
+    IBASE::Time getDeltaTimeToUTC ();
+
+    // accessor to a CommandInjectMngr
+    //   raises RegistrationFailed if there is no server available
+    //   sourceName is used for logging purposes
+    CommandInjectMngr getTCinjectMngr (in CommandInjectMngrView obj,
+				       in string sourceName)
+      raises (RegistrationFailed);
+  };
+  //---------------------------------------------------------------------------
+};
+
+#endif
+//-----------------------------END--------------------------------------------

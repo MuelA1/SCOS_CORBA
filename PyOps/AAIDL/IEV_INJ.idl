@@ -1,0 +1,66 @@
+//--------------------------------------------------------------------------
+//
+// (C) 2000     European Space Agency
+//              European Space Operations Centre
+//              Darmstadt, Germany
+//
+// -------------------------------------------------------------------------
+//
+// System       : SCOS-2000 - the Satellite Control and Operations System
+//
+// Sub-System   : EIS
+//
+// File Name    : IEV_INJ.idl
+//
+// Author       : Tim England
+//
+// Creation Date: August 2000
+//
+// Description  : Interface definition for the event injection service
+//
+// -------------------------------------------------------------------------
+#ifndef IEV_INJ_idl
+#define IEV_INJ_idl
+
+
+// -- Includes
+#include "IEV.idl"
+
+
+// -- Constants, Enums, Typedefs
+
+// namespace for Event Injection Service
+module IEV_INJ
+{
+  //---------------------------------------------------------------------------
+  //
+  // INTERFACE: EventInjectMngr
+  //
+  // INTERFACE DESCRIPTION: Event Injection interface
+  // 
+  //---------------------------------------------------------------------------
+  interface EventInjectMngr
+  {
+    // Default string used in the naming service
+    const string ServiceName = "EV_INJ_001";
+
+    // Exception thrown when injected event is incorrect
+    exception BadEvent { };
+
+    // Inject a single event
+    //   raises IBASE::NotFound if event does not have correct
+    //   raises BadEvent if evnt does not contain a valid event
+    void injectEvent(in IEV::Event p_event)
+      raises (IBASE::NotFound, BadEvent);
+
+    /** provides the default datastream */
+    long getDefaultDataStream();
+    
+    /** provides the default spacecraft ID */
+    string getDefaultSpacecraftID();
+  };
+
+};
+
+#endif
+//-----------------------------END--------------------------------------------

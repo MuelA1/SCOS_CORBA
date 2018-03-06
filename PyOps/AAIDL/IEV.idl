@@ -1,0 +1,196 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineering, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef IEV_idl
+#define IEV_idl
+
+#include "ITM.idl"
+
+/**
+ * Event Data and Out of Limit Type(s)
+ *
+ * @version IEV.idl 1.15 - 01/05/22 16:25:23
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module IEV
+{
+    /*********/
+    /* Event */
+    /*********/
+
+    /** Component of the SCOS-2000 MCS, where the event was raised ,*/
+    typedef octet Scope;
+    const short SYSTEM   = 0x0001;
+    const short SOFTWARE = 0x0002;
+    const short MIB      = 0x0004;
+    const short LOG      = 0x0008;
+
+    /** Error level of the event */
+    typedef octet Severity;
+    const short WARNING     = 0x0001;
+    const short ERROR       = 0x0002;
+    const short FATAL       = 0x0004;
+    const short INFORMATION = 0x0008;
+
+    /** Injection data of an event */
+    struct Event
+    {
+        string m_id;
+        string m_message;
+        string m_application;   // name of the application in which the event
+                                // occurred
+        string m_workstation;   // The ID of the workstation that generated the
+                                // event. Alternatively this field could be used
+                                // to provide a "Source" name.
+        Scope m_scope;          // the type of the event
+        Severity m_severity;
+        long m_dataStreamID;
+        string m_spacecraft;    // the spacecraft to which the event corresponds
+    };
+
+    /** List of events for injection */
+    typedef sequence<Event> Events;
+
+    struct TransmissionFilter
+    {
+        boolean m_transmitData;
+        boolean m_transmitPacketHeader;
+        boolean m_transmitPacketHeaderRawData;
+        boolean m_transmitPacketBodyRawData;
+    };
+
+    /** Packet header information */
+    struct PacketHeader
+    {
+      // Common Data
+      IBASE::CommonPktHeader m_commonHeader;
+    };
+
+    typedef sequence <PacketHeader> PacketHeaders;
+    
+    struct PacketData
+    {
+        PacketHeaders     m_pktHeader;
+        IBASE::ByteString m_pktHeaderRawData;
+        IBASE::ByteString m_pktBodyRawData;
+    };
+
+    typedef sequence <PacketData> PacketDatas;
+
+    /** Data of a raised event */
+    struct RaisedEvent
+    {
+        IBASE::Time m_time;
+        Event m_event;
+        long m_pktDataIndex;
+    };
+
+    /** List of raised events */
+    typedef sequence<RaisedEvent> RaisedEvents;
+
+    /***************/
+    /* EventFilter */
+    /***************/
+
+    /** Filter for events */
+    struct EventFilter
+    {
+        string m_id;             // regular expression
+        string m_message;        // regular expression
+        string m_application;    // regular expression
+        string m_workstation;    // regular expression
+        Scope m_scope;           // tags can be or'ed
+        Severity m_severity;     // tags can be or'ed
+        IBASE::Longs m_dataStreamIDs;
+        string m_spacecraft;     // regular expression
+    };
+
+    /***********/
+    /* OOLinfo */
+    /***********/
+
+    /** Details of a status entry with discrete allowed values */
+    struct StatusDetails
+    {
+        ITM::OOLstate m_state;
+        IBASE::Variant m_value;
+        IBASE::Variants m_allowedValues;
+    };
+
+    /** Details of an Out of Limits entry */
+    struct LimitDetails
+    {
+        ITM::OOLstate m_state;
+        IBASE::Variant m_value;
+        IBASE::Variant m_lowerLimit;
+        IBASE::Variant m_upperLimit;
+    };
+
+    /** Details of a Status Consistency Check entry */
+    struct SCCdetails
+    {
+        IBASE::Variant m_valueEng;
+        IBASE::Variant m_lowerLimitEng;
+        IBASE::Variant m_upperLimitEng;
+    };
+
+    /** Discriminator for selecting an OOL detail */
+    typedef short OOLtype;
+    const short LIMIT =              0x0001;
+    const short STATE =              0x0002;
+    const short STATUS_CONSISTENCY = 0x0004;
+
+    /** Details of a limit violation */
+    union OOLdetails switch(OOLtype)
+    {
+        case LIMIT:              LimitDetails  m_limitDetails;
+        case STATE:              StatusDetails m_statusDetails;
+        case STATUS_CONSISTENCY: SCCdetails    m_sccDetails;
+    };
+
+    /** Complete information of a limit violation */
+    struct OOLinfo
+    {
+        string m_name;
+        IBASE::Time m_oolTime;
+        IBASE::Time m_valueTime;
+        OOLdetails m_details;
+        long m_pktDataIndex;
+    };
+
+    /** List of limit violations */
+    typedef sequence<OOLinfo> OOLinfos;
+
+    /*****************/
+    /* OOLinfoFilter */
+    /*****************/
+
+    /** Filter for Out of Limits */
+    struct OOLinfoFilter
+    {
+        string m_name;           // regular expression
+        OOLtype m_type;          // tags can be or'ed
+    };
+
+    /******************/
+    /* CombinedEvents */
+    /******************/
+
+    /** Combined events and OOLs */
+    struct CombinedEvents
+    {
+        IBASE::Time m_evPktTime;   // time context for the events
+        RaisedEvents m_events;
+        OOLinfos m_oolInfos;
+        PacketDatas m_pktData;
+    };
+};
+
+#endif

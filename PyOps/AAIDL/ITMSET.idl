@@ -1,0 +1,167 @@
+/******************************************************************************/
+/*                                                                            */
+/* WebRM - Web based Remote Monitoring                                        */
+/*                                                                            */
+/* (C) 2000 ESA         - European Space Agency                               */
+/*          Siemens PSE - Programm and System Engineerin, Austria             */
+/*                                                                            */
+/******************************************************************************/
+#ifndef ITMSET_idl
+#define ITMSET_idl
+
+#include "IMIB.idl"
+#include "ITM.idl"
+
+/**
+ * Telemetry Set Type(s)
+ *
+ * @version ITMSET.idl 1.14 - 01/05/22 16:25:24
+ *
+ * @author Stefan Korner
+ * @author Gerfried Krames
+ */
+module ITMSET
+{
+    /***************************/
+    /* extented ParamValueType */
+    /***************************/
+
+    /**
+     * Extension to IMIB::ParamValueType
+     * @see IMIB::ParamValueType
+     */
+    const short PARAM_FILTERED_VALUE = 0x0800;
+
+    /*******************/
+    /* SetRegisterCrit */
+    /*******************/
+
+    /** Registration data for parameter in a parameter set */
+    struct ParamRegisterCrit
+    {
+        // key to identify the parameter during notification
+        long m_key;
+        // parameter name
+        string m_name;
+        // selection criterias for the parameter's attributes
+        IMIB::ParamValueType m_criterias;
+        // flag for each parameter's attribute: update only when change
+        IMIB::ParamValueType m_onlyWhenChange;
+        // flag for each parameter's attribute: update once or frequently
+        boolean m_onlyOnce;
+    };
+
+    /** Registration data for all parameters in a parameter set */
+    typedef sequence<ParamRegisterCrit> ParamRegisterCrits;
+
+    /** Registration data for a parameter set */
+    struct SetRegisterCrit
+    {
+        // key to identify the set during notification
+        long m_key;
+        // list with registration criterias for parameters
+        ParamRegisterCrits m_paramEntries;
+    };
+
+    /********************/
+    /* ClientNotifyData */
+    /********************/
+
+    /** Notification data of a parameter's attribute */
+    union ParamAttribute switch(IMIB::ParamValueType)
+    {
+        case IMIB::PARAM_RAW_VALUE:     ITM::ReducedValue m_rawValue;
+        case IMIB::PARAM_ENG_VALUE:     ITM::ReducedValue m_engValue;
+        case IMIB::PARAM_SYN_VALUE:     ITM::ReducedValue m_synValue;
+        case IMIB::PARAM_SOURCE_VALUE:  ITM::ReducedValue m_sourceValue;
+        case IMIB::PARAM_DEFAULT_VALUE: ITM::ReducedValue m_defaultValue;
+        case PARAM_FILTERED_VALUE:      ITM::ReducedValue m_filteredValue;
+        case IMIB::PARAM_OOL:           ITM::OOLstate     m_oolState;
+        case IMIB::PARAM_SCC:           ITM::SCCstate     m_sccState;
+    };
+
+    /** Notification data of several parameter's attributes */
+    typedef sequence<ParamAttribute> ParamAttributes;
+
+    /** Notification data of a parameter */
+    struct ParamNotifyData
+    {
+        // identifier of the information. Is the same key that was set during
+        // registration in the ParamRegisterCrit.
+        long m_key;
+        // parameter's sample time
+        IBASE::Time m_sampleTime;
+        // list with attribute values of the parameter
+        ParamAttributes m_attributes;
+        // indexes of packet data in m_tmPktData of ClientNotifyData
+        IBASE::Longs m_tmPktDataIndexes;
+    };
+
+    /** Notification data of several parameters */
+    typedef sequence<ParamNotifyData> ParamNotifyDatas;
+
+    /** Notification data of a parameter set */
+    struct SetNotifyData
+    {
+        // identifier of the information. Is the same key that was set during
+        // registration in the SetRegisterCrit.
+        long m_key;
+        // list with values for parameters
+        ParamNotifyDatas m_paramEntries;
+    };
+
+    /** Notification data of several parameter sets */
+    typedef sequence<SetNotifyData> SetNotifyDatas;
+
+    struct TransmissionFilter
+    {
+        boolean m_transmitData;
+        boolean m_transmitPacketHeader;
+        boolean m_transmitPacketHeaderRawData;
+        boolean m_transmitPacketBodyRawData;
+    };
+
+    /** Packet header information */
+    struct PacketHeader
+    {
+        //common base class data
+        IBASE::CommonPktHeader m_commonHeader;
+      
+        //TDEVSIItlmPktHdr
+        unsigned long  m_pktValidity;
+        long           m_Tpsd;
+        unsigned short m_RouteId;
+        unsigned short m_PusApid;
+        unsigned short m_PusSrcSeqCnt;
+        octet          m_PusSrvcType;
+        octet          m_PusSrvcSubType;
+
+        //derived data
+        string m_pktId;
+    };
+        
+    typedef sequence <PacketHeader> PacketHeaders;
+    
+    struct PacketData
+    {
+        PacketHeaders m_pktHeader;
+        IBASE::ByteString m_pktHeaderRawData;
+        IBASE::ByteString m_pktBodyRawData;
+    };
+
+    /** Packet header information of several parameters */
+    typedef sequence <PacketData> PacketDatas;
+
+    /** Notification data boundle all parameters of a client */
+    struct ClientNotifyData
+    {
+        // time context for the parameter values
+        IBASE::Time m_tmPktTime;
+        // list with parameter sets
+        SetNotifyDatas m_setEntries;
+        // list with packet data
+        PacketDatas m_tmPktData;
+    };
+};
+
+#endif
