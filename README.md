@@ -1,4 +1,4 @@
-# Setup Environment
+# Setup Environment for Ubuntu
 * Install Anaconda (download from https://www.anaconda.com/download/#linux)
 * Install omniORB
 ** tar xf omniORB-4.2.2.tar.bz2
@@ -9,5 +9,6 @@
 * Install omniORBpy
 ** repeat steps above
 * Add to .bashrc
-** export PYTHONPATH=$PYTHONPATH:{anaconda-location}/lib/python3.6/site-packages:{anaconda-location}"
-** export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/usr/local/lib/python3.6 (you may have to change these paths according to your setup)
+** export PYTHONPATH="$PYTHONPATH:/usr/local/lib/python3.6/site-packages"
+** export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib:/usr/local/lib/python3.6" 
+(you may have to change these paths according to your setup)
