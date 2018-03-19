@@ -17,9 +17,9 @@ class Operator():
         self.__cmdAgent = CommandAgent()
                
     # perform Agent operations
-    def connect(self):
-        mibMngr = self.__mibAgent.connect(self.__mibAgent.getNamingService(),self.__mibAgent.getServerMngrType())
-        cmdServerMngr = self.__cmdAgent.connect(self.__cmdAgent.getNamingService(),self.__cmdAgent.getServerMngrType())
+    def connect(self,ip,port):
+        mibMngr = self.__mibAgent.connect(ip,port,self.__mibAgent.getNamingService(),self.__mibAgent.getServerMngrType())
+        cmdServerMngr = self.__cmdAgent.connect(ip,port,self.__cmdAgent.getNamingService(),self.__cmdAgent.getServerMngrType())
         return [mibMngr,cmdServerMngr]
     
     def createViewInterfaces(self):

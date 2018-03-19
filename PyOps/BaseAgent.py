@@ -6,20 +6,23 @@ Base class of agent classes
 
 """
 
+#from abc import ABC, abstractmethod
 import CORBA
 
 class BaseAgent():
    
     def __init__(self):      
-        self.__ip = '192.168.56.101'
-        self.__port = '20001'
+        self.__ip = ''
+        self.__port = ''
         self.__poaType = 'omniINSPOA'       
         self._serverMngr = None
         
         self.__orb = CORBA.ORB_init()
         
     # call: str, ModuleType
-    def connect(self,namingService,serverMngrType):
+    def connect(self,ip,port,namingService,serverMngrType):
+        self.__ip = ip
+        self.__port = port
         self._serverMngr = self.__orb.string_to_object('corbaname::{0}:{1}/NameService#{2}'.format(self.__ip,self.__port,namingService))   
         self._serverMngr = self._serverMngr._narrow(serverMngrType)       
         return self._serverMngr

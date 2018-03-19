@@ -17,7 +17,7 @@ from datetime import datetime
 try:    
     operator = Operator()
  
-    [mibMngr,serverMngr] = operator.connect()
+    [mibMngr,serverMngr] = operator.connect('192.168.56.101','20001')
     operator.createViewInterfaces()
     [commandDefIterator,cmdInjMngr] = operator.getManagers()
     
