@@ -11,7 +11,9 @@ import datetime
 # UTC+0  
 def timestamp2SCOSdate(sec, micro):
     
-    timestamp = (sec - 3600) + (micro/1e6)
+    #timestamp = (sec - 3600) + (micro/1e6)
+
+    timestamp = sec + (micro/1e6)
     dateString = datetime.datetime.fromtimestamp(timestamp).strftime('%Y.%j.%H.%M.%S.%f %ZUTC+0')
        
     #print('\033[1;34;48mSCOS date: ' + dateString + '\033[0m')

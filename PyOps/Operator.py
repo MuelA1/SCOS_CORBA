@@ -8,6 +8,7 @@ Facade, higher-level interface to use different agents and to perform specific t
 
 from MIBAgent import MIBAgent
 from CommandAgent import CommandAgent
+from Command import Command
 
 class Operator():
     
@@ -15,6 +16,9 @@ class Operator():
     def __init__(self):
         self.__mibAgent = MIBAgent()
         self.__cmdAgent = CommandAgent()
+        self.__command = Command()
+        
+        self.__cmdInjMngr = None
                
     # perform Agent operations
     def connect(self,ip,port):
@@ -27,8 +31,11 @@ class Operator():
         
     def getManagers(self):
         commandDefIterator = self.__mibAgent.commandDefinitionIterator()
-        cmdInjMngr = self.__cmdAgent.tcInjectMngr()
-        return [commandDefIterator,cmdInjMngr]   
+        self.__cmdInjMngr = self.__cmdAgent.tcInjectMngr()
+        return [commandDefIterator,self.__cmdInjMngr]   
+    
+    def createCommand(self,cmdName):
+        self.setDefaultCommandValues(cmdName)
     
     def setDefaultCommandValues(self,cmdName):
         # default MIB values
@@ -37,12 +44,12 @@ class Operator():
         print('Original command values from MIB:')
         print(str(cmdDef) + '\n')
         
-        self.__cmdAgent.setCommandName(cmdDef.m_name)
-        self.__cmdAgent.setCommandDescription(cmdDef.m_description)
-        self.__cmdAgent.setCommandParameters(cmdDef.m_params) 
+        self.__command.setCommandName(cmdDef.m_name)
+        self.__command.setCommandDescription(cmdDef.m_description)
+        self.__command.setCommandParameters(cmdDef.m_params) 
         
     def setRequiredParameterValues(self,paramName,paramValue):
-        self.__cmdAgent.setRequiredParameterValues(paramName,paramValue) 
+        self.__command.setRequiredParameterValues(paramName,paramValue) 
                
     def injectCommand(self):
-        self.__cmdAgent.injectCommand()
+        self.__command.injectCommand(self.__cmdInjMngr)

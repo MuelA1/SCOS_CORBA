@@ -11,19 +11,27 @@ Client for test purposes
 from Operator import Operator
 
 import sys
+
+sys.path.append('AAIDL')
+
 from colorama import Fore, Back, Style
 from datetime import datetime
 
 try:    
     operator = Operator()
  
-    [mibMngr,serverMngr] = operator.connect('192.168.56.101','20001')
+    [mibMngr,serverMngr] = operator.connect('192.168.197.50','20001')
     operator.createViewInterfaces()
     [commandDefIterator,cmdInjMngr] = operator.getManagers()
     
     # Test: PING, PPC00201, AGC0DW02,'DSC32000','GRC10002'
-    operator.setDefaultCommandValues('AGC0DW02')
-    operator.setRequiredParameterValues('AGP00000',['U',50])
+    #operator.setDefaultCommandValues('AGC0DW02')
+    #operator.setRequiredParameterValues('AGP00000',['U',50])
+     
+    operator.createCommand('PING')
+    
+    #operator.setDefaultCommandValues('PING')
+    
     #operator.setDefaultCommandValues('GRC10002')
     #operator.setRequiredParameterValues('COMMAN16',['S','TEST1'])
     #operator.setRequiredParameterValues('COMMAN16',['S','TEST2'])

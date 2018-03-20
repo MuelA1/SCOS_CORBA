@@ -10,7 +10,7 @@ import ITC_INJ__POA, TimeModule
 from colorama import Fore, Back, Style
 
 class CommandInjectMngrView(ITC_INJ__POA.CommandInjectMngrView):
-     
+    
     def __init__(self):
         print('\nCreating client view...\n')
         
@@ -29,7 +29,7 @@ class CommandInjectMngrView(ITC_INJ__POA.CommandInjectMngrView):
     
     # command status    
     def updateRequestStatus(self,status):
-        print(Fore.BLUE + Style.BRIGHT + '\nCommand status update {0}:'.format(self.__commandCounter + 1), Style.RESET_ALL)
+        print(Fore.BLUE + Style.BRIGHT + '\nCommand status update {0}:'.format(self.__commandCounter), Style.RESET_ALL)
         self.__commandStatusList.append(status)
         
         print('Command ID: ' + Fore.BLUE + Style.BRIGHT + '{0}'.format(self.__commandStatusList[self.__commandCounter].m_request_id), Style.RESET_ALL)
