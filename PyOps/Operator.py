@@ -1,55 +1,57 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+""" Facade, higher-level interface to use different agents and to perform specific tasks
 
-Facade, higher-level interface to use different agents and to perform specific tasks
-
+Operator -- describes an interface where every object is created
 """
 
 from MIBAgent import MIBAgent
 from CommandAgent import CommandAgent
 from Command import Command
+from ViewInterfaces import CommandInjectMngrView
 
 class Operator():
     
-    # create Agent Objects
+    # create agent objects
     def __init__(self):
         self.__mibAgent = MIBAgent()
         self.__cmdAgent = CommandAgent()
-        self.__command = Command()
-        
-        self.__cmdInjMngr = None
-               
-    # perform Agent operations
+                      
+    # perform agent operations
     def connect(self,ip,port):
         mibMngr = self.__mibAgent.connect(ip,port,self.__mibAgent.getNamingService(),self.__mibAgent.getServerMngrType())
         cmdServerMngr = self.__cmdAgent.connect(ip,port,self.__cmdAgent.getNamingService(),self.__cmdAgent.getServerMngrType())
+        
         return [mibMngr,cmdServerMngr]
     
-    def createViewInterfaces(self):
-        self.__cmdAgent.createCmdInjMngrView()
+    def initialize(self):
+        cmdInjMngrView = self.createViewInterfaces()
+        [commandDefIterator,cmdInjMngr] = self.getManagers()
+    
+        return cmdInjMngrView,commandDefIterator,cmdInjMngr
+    
+    def createViewInterfaces(self):       
+        cmdInjMngrView = self.__cmdAgent.createCmdInjMngrView(CommandInjectMngrView(),'MngrView')               
         
+        return cmdInjMngrView
+    
     def getManagers(self):
         commandDefIterator = self.__mibAgent.commandDefinitionIterator()
-        self.__cmdInjMngr = self.__cmdAgent.tcInjectMngr()
-        return [commandDefIterator,self.__cmdInjMngr]   
-    
-    def createCommand(self,cmdName):
-        self.setDefaultCommandValues(cmdName)
-    
-    def setDefaultCommandValues(self,cmdName):
+        cmdInjMngr = self.__cmdAgent.tcInjectMngr()
+        
+        return commandDefIterator,cmdInjMngr 
+                
+    def createCommand(self,cmdName,**cmdKwargs):
+
         # default MIB values
         cmdDef = self.__mibAgent.commandDefinition(cmdName)        
         # Test
-        print('Original command values from MIB:')
-        print(str(cmdDef) + '\n')
+        # print('Original command values from MIB: ' + str(cmdDef))
         
-        self.__command.setCommandName(cmdDef.m_name)
-        self.__command.setCommandDescription(cmdDef.m_description)
-        self.__command.setCommandParameters(cmdDef.m_params) 
+        command = Command(cmdDef.m_name,cmdDef.m_description,**cmdKwargs)              
+        command.setCommandDef(cmdDef)
+        command.setMIBCommandParameters() 
+        command.setCommandInjMngr(self.__cmdAgent.getCmdInjMngr())
         
-    def setRequiredParameterValues(self,paramName,paramValue):
-        self.__command.setRequiredParameterValues(paramName,paramValue) 
-               
-    def injectCommand(self):
-        self.__command.injectCommand(self.__cmdInjMngr)
+        return command
+        

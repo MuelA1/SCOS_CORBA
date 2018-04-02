@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+""" Access to static data for commands, access to telemetry parameter data 
 
-Access to static data for commands
-Access to telemetry parameter data 
-
+MIBAgent -- describes MIB access
 """
 
 from BaseAgent import BaseAgent
@@ -14,12 +12,11 @@ import IMIB_PRO
 class MIBAgent(BaseAgent):
         
     def __init__(self):
+        super().__init__()
         self.__namingService = 'MIB_PRO_001'
         self.__serverMngrType = IMIB_PRO.MIBmngr
         self.__commandDefIterator = None
-        
-        BaseAgent.__init__(self)
-        
+           
     def getNamingService(self):
         return self.__namingService   
      

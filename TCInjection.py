@@ -63,9 +63,12 @@ try:
 #==============================================================================
 
     # creates omniORB.PortableServer.POA object with persistent object policies
-    poa = orb.resolve_initial_references("omniINSPOA")
-    poaId = "MyObjectId"
-    poa.activate_object_with_id(poaId,injMngrViewObject)
+#    poa = orb.resolve_initial_references("omniINSPOA")
+#    poaId = "MyObjectId"
+#    poa.activate_object_with_id(poaId,injMngrViewObject)
+
+    poa = orb.resolve_initial_references("RootPOA")
+    poa.activate_object(injMngrViewObject)
     cmdInjMngrView = poa.servant_to_reference(injMngrViewObject)
 
     # activate the poa, that incoming requests are served
@@ -113,7 +116,7 @@ try:
     # default is BD, AD also possible (Command Frame Type)
     print("Command frame type is: " + str(cmdInjMngr.getTransferMode()))
     
-    orb.run()
+    #orb.run()
 
 #==============================================================================
    
