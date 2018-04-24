@@ -27,7 +27,7 @@ class MIBAgent(BaseAgent):
         self.__commandDefIterator = self._serverMngr.getCommandDefIterator()
         return self.__commandDefIterator 
     
-    def commandDefinition(self,command):
+    def commandDefinition(self, command):
         return self.__commandDefIterator.getDef(command)
     
         

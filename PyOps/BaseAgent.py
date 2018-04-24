@@ -20,18 +20,17 @@ class BaseAgent():
        
         self.__orb = CORBA.ORB_init()
         
-    # call: str, ModuleType
-    def connect(self,ip,port,namingService,serverMngrType):
+    def connect(self, ip, port, namingService, serverMngrType):
         self.__ip = ip
         self.__port = port
-        self._serverMngr = self.__orb.string_to_object('corbaname::{0}:{1}/NameService#{2}'.format(self.__ip,self.__port,namingService))   
+        self._serverMngr = self.__orb.string_to_object('corbaname::{0}:{1}/NameService#{2}'.format(self.__ip, self.__port, namingService))   
         self._serverMngr = self._serverMngr._narrow(serverMngrType)       
         return self._serverMngr
 
-    def createCorbaObject(self,mngrViewObject,poaIdStr):
+    def createCorbaObject(self, mngrViewObject, poaIdStr):
         
         #poa = self.__orb.resolve_initial_references(self.__poaType)
-        #poa.activate_object_with_id(poaIdStr,mngrViewObject)
+        #poa.activate_object_with_id(poaIdStr, mngrViewObject)
         
         poa = self.__orb.resolve_initial_references('RootPOA')
         poa.activate_object(mngrViewObject)
@@ -45,17 +44,17 @@ class BaseAgent():
     
     def getIp(self):
         return self.__ip    
-    def setIp(self,ip):
+    def setIp(self, ip):
         self.__ip = ip
         
     def getPort(self):
         return self.__port
-    def setPort(self,port):
+    def setPort(self, port):
         self.__port = port
         
     def getPOAType(self):
         return self.__poaType
-    def setPOAType(self,poaType):
+    def setPOAType(self, poaType):
         self.__poaType = poaType
         
     def getServerMngr(self):
