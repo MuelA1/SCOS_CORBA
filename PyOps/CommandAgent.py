@@ -27,18 +27,16 @@ class CommandAgent(BaseAgent):
     
     def createCmdInjMngrView(self, cmdView, idString):
         self.__cmdInjMngrView = self.createCorbaObject(cmdView, idString)
-        return self.__cmdInjMngrView
-        
+            
     def getCmdInjMngrView(self):
         return self.__cmdInjMngrView
     
     def tcInjectMngr(self):
         self.__cmdInjMngr = self._serverMngr.getTCinjectMngr(self.__cmdInjMngrView, "ExternalClient")
-        return self.__cmdInjMngr
-    
+          
     def getCmdInjMngr(self):
         return self.__cmdInjMngr
-    
+                            
     def deregister(self, sec):
         """ Deregister callback interface after x sec and clear internal buffer. """
         
@@ -54,8 +52,3 @@ class CommandAgent(BaseAgent):
         else:
             sys.exit(0)
             
-            
-
-        
-     
-      

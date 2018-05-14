@@ -94,7 +94,7 @@ try:
         timeMngr = tmServer.m_timeMngr
         
         # retrieval backward mode (real time mode, history stop mode and retrieval forward mode also possible)
-        timeMngr.setMode(ICLOCK.HISTORY_BACKWARD)
+        timeMngr.setMode(ICLOCK.HISTORY_FORWARD)
         print('Time mode is: ' + timeMngr.getMode())
               
         scosDate = "2017.326.16.22.18.945000"
@@ -113,6 +113,7 @@ try:
     # get single TM Parameter Data Provision Manager
     paramMngr = tmServer.m_parameterMngr
     
+    # 'PBTPWR00'
     paramIF = paramMngr.getParameter('PBTPWR00',paramView)
 
 #==============================================================================

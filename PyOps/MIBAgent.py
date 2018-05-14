@@ -6,7 +6,6 @@ MIBAgent -- describes MIB access
 """
 
 from BaseAgent import BaseAgent
-
 import IMIB_PRO
 
 class MIBAgent(BaseAgent):
@@ -25,10 +24,7 @@ class MIBAgent(BaseAgent):
     
     def commandDefinitionIterator(self):
         self.__commandDefIterator = self._serverMngr.getCommandDefIterator()
-        return self.__commandDefIterator 
-    
+         
     def commandDefinition(self, command):
         return self.__commandDefIterator.getDef(command)
     
-        
-        

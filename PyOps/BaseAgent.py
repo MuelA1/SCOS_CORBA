@@ -25,8 +25,7 @@ class BaseAgent():
         self.__port = port
         self._serverMngr = self.__orb.string_to_object('corbaname::{0}:{1}/NameService#{2}'.format(self.__ip, self.__port, namingService))   
         self._serverMngr = self._serverMngr._narrow(serverMngrType)       
-        return self._serverMngr
-
+      
     def createCorbaObject(self, mngrViewObject, poaIdStr):
         
         #poa = self.__orb.resolve_initial_references(self.__poaType)
