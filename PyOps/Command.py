@@ -13,8 +13,8 @@ from prettytable import PrettyTable
 from operator import attrgetter
 import progressbar as pb
 from subprocess import Popen
-import os
-from blessings import Terminal
+import os, sys
+#import logging
 
 class Command():
        
@@ -40,19 +40,23 @@ class Command():
     __systemStatusListStatic = []
     
     __cmdList = []
-    
     __cmdCount = 0
+    __globalTimeout = 100
     
     __lock = threading.Lock()
-    __injLock = threading.Lock()
+    __injectionLock = threading.Lock()
     
+    __cmdTerm = None
+    __cbTerm = None
     __PIPE_PATH_Callb = None
-    __cbTerm = Terminal()
-    
+        
     __cmdInjMngr = None
     __commandServerMngr = None
+    
+    __pbMarker = ['Waiting for command callbacks... ', pb.AnimatedMarker()]
+    __animMarker = pb.ProgressBar(widgets=__pbMarker)
          
-    def __init__(self, name, description, absReleaseTime=IBASE.Time(0,0,False), relReleaseTime=None, absExecutionTime=IBASE.Time(0,0,False), staticPtv='D', dynamicPtv='D', cev=False, timeout=None):
+    def __init__(self, name, description, absReleaseTime=IBASE.Time(0,0,False), relReleaseTime=None, absExecutionTime=IBASE.Time(0,0,False), staticPtv='D', dynamicPtv='D', cev=True, timeout=__globalTimeout, interlock=None):
         
         self.__cmdList.append(self)
         type(self).__cmdCount += 1
@@ -61,13 +65,11 @@ class Command():
         self.__cmdDescription = description
 
         if type(absReleaseTime) == str:
-            self.__absReleaseTime = TimeModule.scosDate2timestamp(absReleaseTime)
+            self.__absReleaseTime = TimeModule.scosDate2ibaseTime(absReleaseTime)
             if TimeModule.ibaseTime2stamp(self.__absReleaseTime) < time.time():
-                raise Exception(' Release time ' + absReleaseTime + ' from the past is used')                
-            if timeout != None:
-                self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime) + timeout
-            else:
-                self.__timeoutTimestamp = None
+                raise Exception(f'Command {self.__instCount}: {name} - Release time ' + absReleaseTime + ' from the past is used')                          
+            self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime) + timeout
+            
         else:
             self.__absReleaseTime = absReleaseTime
             self.__timeoutTimestamp = None
@@ -80,9 +82,9 @@ class Command():
         self.__releaseTimeThread = None
         
         if type(absExecutionTime) == str:            
-            self.__absExecutionTime = TimeModule.scosDate2timestamp(absExecutionTime)
+            self.__absExecutionTime = TimeModule.scosDate2ibaseTime(absExecutionTime)
             if TimeModule.ibaseTime2stamp(self.__absExecutionTime) < time.time():
-                raise Exception(' Execution time ' + absExecutionTime + ' from the past is used')        
+                raise Exception(f'Command {self.__instCount}: {name} - Execution time ' + absExecutionTime + ' from the past is used')        
         else:
             self.__absExecutionTime = absExecutionTime
             
@@ -121,154 +123,108 @@ class Command():
         self.__timeout = timeout
         
         self.__repeaterGroup = {}
+        self.__repeaterGroupName = {}
         
         self.__callbackCompletedStage = None
         self.__callbackCompletedStatus = None       
         self.__callbackCompletedTime = None
         
-        self.__interlock = [False, False, False]
+        self.__interlock = interlock if interlock is not None else []
         
         self.__callbackTable = PrettyTable(['Stage', 'Status', 'Time'])        
-        self.__paramTable = PrettyTable(['Name', 'Description', 'Eng. Val', 'Unit', 'Radix', 'Value Type', 'Value'])
-          
-        pbWidgets = [Fore.WHITE + Back.BLUE + Style.BRIGHT + 'Next inj: ' + self.__cmdName + Style.RESET_ALL, ' ', pb.Percentage(), pb.Bar(), pb.Timer(), ' ', pb.ETA()]
-        self.__bar = pb.ProgressBar(widgets=pbWidgets, min_value=0)
+        self.__paramTable = PrettyTable([Style.BRIGHT + 'Name', 'Description', 'Eng. Val', 'Unit', 'Radix', 'Value Type', 'Value'+ Style.RESET_ALL])
+        self.__paramTableLog = PrettyTable(['Name', 'Description', 'Eng. Val', 'Unit', 'Radix', 'Value Type', 'Value'])
+              
+        pbWidgets = [Fore.WHITE + Back.BLUE + Style.BRIGHT + self.__cmdName + Style.RESET_ALL + Style.BRIGHT, pb.Bar(fill='█'), ' ', pb.Percentage(), ' ', pb.ETA(), Style.RESET_ALL]
+        self.__bar = pb.ProgressBar(widgets=pbWidgets, min_value=0, term_width=115)
         
-    def __repr__(self):
+        ilockWidgets = ['Waiting for interlock status <<' + '%s' % ', '.join(map(str, self.__interlock)) + '>>...', pb.BouncingBar(marker=pb.RotatingMarker())]
+        self.__ilockBar = pb.ProgressBar(widgets=ilockWidgets, term_width=61)
         
-        string = f'\nCommand status {self.__instCount} {self.__cmdName:=^89}\n\n'
-        string += 'name: {} \ndescription: {} \nparameters: {} \nrequestID: {} \n\ninjectionTime: {} \nreleaseTime: {} \nrelReleaseTime: {} \nexecutionTime: {} \ntimeout: {} sec \ntimeoutTime: {} \n\nstaticPtv: {} \ndynamicPtv: {} \ncev: {} \n{}'.format(self.__cmdName,
-                   self.__cmdDescription, self.__cmdParameters, self.__injRequestID, TimeModule.timestamp2SCOSdate(self.__injectionTime), TimeModule.timestamp2SCOSdate(self.__absReleaseTime), self.__relReleaseTime, TimeModule.timestamp2SCOSdate(self.__absExecutionTime), self.__timeout,
-                   TimeModule.timestamp2SCOSdate(TimeModule.stamp2ibaseTime(self.__timeoutTimestamp)), self.__staticPtv, self.__dynamicPtv, self.__cev, self)
+        #logging.basicConfig(level=logging.DEBUG)
         
-        return string
+#    def __repr__(self):
+#        
+#        string = f'\nCommand status {self.__instCount} {self.__cmdName:=^89}\n\n'
+#        string += 'name: {} \ndescription: {} \nparameters: {} \nrequestID: {} \n\ninjectionTime: {} \nreleaseTime: {} \nrelReleaseTime: {} \nexecutionTime: {} \ntimeout: {} sec \ntimeoutTime: {} \n\nstaticPtv: {} \ndynamicPtv: {} \ncev: {} \n{}'.format(self.__cmdName,
+#                   self.__cmdDescription, self.__cmdParameters, self.__injRequestID, TimeModule.ibaseTime2SCOSdate(self.__injectionTime), TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime), self.__relReleaseTime, TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime), self.__timeout,
+#                   TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(self.__timeoutTimestamp)), self.__staticPtv, self.__dynamicPtv, self.__cev, self)
+#        
+#        return string
     
     def __str__(self):
+    
+        if self.__instCount > 999:
+            disp = 82
+        elif self.__instCount > 99:
+            disp = 83
+        elif self.__instCount > 9:
+            disp = 84
+        else:
+            disp = 85
+            
+        string = '\n' + '*' * 95
+        string += f'\nCommand {self.__instCount} {self.__cmdName:=^{disp}}\n' 
+        string += '*' * 95 + '\n\n' 
+                  
+        string += 'Description ' + '-' * 83 + '\n\n'
+        string += f'{self.__cmdDescription}\n\n'
+        
+        string += 'Parameters ' + '-' * 84 + '\n\n'
+        
+        if self.__cmdParameters != []:
+            string += self.__paramTableLog.get_string() 
+            string += '\n\n'
+        else:
+            string += f'Command {self.__cmdName} has no parameters\n\n'
+                
+        string += 'Time status ' + '-' * 83 + '\n\n'
+        
+        string += f'Injection time: {TimeModule.ibaseTime2SCOSdate(self.__injectionTime)}\n'        
+        if self.__relReleaseTime is None:
+            string += f'Release time: {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} (Relative release time: -)\n'
+        else:
+            string += f'Release time: {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} (Relative release time: {self.__relReleaseTime})\n'
+        string += f'Execution time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}\n' 
+        string += f'Timeout time: {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(self.__timeoutTimestamp))} ({self.__timeout} sec)\n\n'
 
-        string = '\nCommand status of command {}: {} - {}\n\n'.format(self.__instCount, self.__cmdName, self.__cmdDescription)      
-        for status in self.__commandStatusList:
-            string += '\t{}: ({} - {}) at {} \trequestID: {}\n'.format(self.__instCount, status.m_stage, self.__statusDict.get(status.m_stage_status), status.m_updateTime, status.m_request_id)
-                   
+        string += 'Interlock status ' + '-' * 78 + '\n\n'
+
+        if self.__interlock != []:
+            string += '%s' % ', '.join(map(str, self.__interlock))
+        else:
+            string += ' -\n\n'
+        
+        string += 'Check status ' + '-' * 82 + '\n\n'
+        
+        string += f'Static PTV: {self.__checkStateTypeDict.get(self.__staticPtv)}\n'
+        string += f'Dynamic PTV: {self.__checkStateTypeDict.get(self.__dynamicPtv)}\n'
+        string += f'CEV: {self.__cev}\n\n'
+        
+        string += 'Callback status ' + '-' * 79 + '\n\n'
+        
+        string += self.__callbackTable.get_string()
+        string += f'\n\nCompleted stage: {self.__callbackCompletedStage}\n'
+        string += f'Completed status: {self.__callbackCompletedStatus}\n'
+        string += f'Completed time: {TimeModule.ibaseTime2SCOSdate(self.__callbackCompletedTime)}\n'
+        
         return string    
-         
-    def printCallback(self, timeout=False):
-        """ Method for printing the full callback. """   
-               
-        # lock thread while printing, for clean output print
-        self.__lock.acquire()
-        try: 
-            
-            if self.__instCount > 999:
-                disp = 55
-            elif self.__instCount > 99:
-                disp = 56
-            elif self.__instCount > 9:
-                disp = 57
-            else:
-                disp = 58
-            
-            with open(self.__PIPE_PATH_Callb, 'w') as cbTerminal:                                          
-                cbTerminal.write('\n' + '*' * 75 + '\n' + Fore.WHITE + Back.BLACK + Style.BRIGHT + f'Command status {self.__instCount} {self.__cmdName:=^{disp}}' + Style.RESET_ALL)   
-                cbTerminal.write('\n' + '*' * 75 + '\n')
-            
-    #            for status in self.__commandStatusList:
-    #                if status.m_stage_status == 0x0002:
-    #                    print(f'{self.__instCount}: ' + Fore.WHITE + Back.GREEN + Style.BRIGHT + f'({status.m_stage} - {self.__statusDict.get(status.m_stage_status)})' + Style.RESET_ALL + f' at {status.m_updateTime}')     
-    #                elif status.m_stage_status == 0x0080:  
-    #                    print(f'{self.__instCount}: ' + Fore.WHITE + Back.RED + Style.BRIGHT + f'({status.m_stage} - {self.__statusDict.get(status.m_stage_status)})' + Style.RESET_ALL + f' at {status.m_updateTime}')  
-    #                else:
-    #                    print('{}: ({} - {}) at {}'.format(self.__instCount, status.m_stage, self.__statusDict.get(status.m_stage_status), status.m_updateTime)) 
-            
-    #            for status in self.__commandStatusList:            
-    #                self.__callbackTable.add_row([status.m_stage, self.__statusDict.get(status.m_stage_status), status.m_updateTime])
-            
-                cbTerminal.write('\nName: {} \nDescription: {} \nRelease Time: {} \nExecution Time: {} \n\n'.format(self.__cmdName, self.__cmdDescription, TimeModule.timestamp2SCOSdate(self.__absReleaseTime), TimeModule.timestamp2SCOSdate(self.__absExecutionTime)))
-                # interlock
-                if self.__interlock[0] == True:
-                    cbTerminal.write('Interlock: last command succeeded\n\n')
-                if self.__interlock[1] == True:
-                    cbTerminal.write('Interlock: last command failed\n\n')  
-                if self.__interlock[2] == True:
-                    cbTerminal.write('Interlock: last command timed out\n\n') 
-            
-                if self.__callbackCompletedStatus == 'PASSED':
-                    cbTerminal.write(Fore.GREEN + Style.BRIGHT + str(self.__callbackTable) + Style.RESET_ALL)
-                elif self.__callbackCompletedStatus == 'FAILED':
-                    cbTerminal.write(self.__cbTerm.bold_red(str(self.__callbackTable)))
-                elif self.__callbackCompletedStatus == 'TIMEOUT':
-                    cbTerminal.write(Fore.YELLOW + Style.BRIGHT + str(self.__callbackTable) + Style.RESET_ALL)
-                else:
-                    cbTerminal.write(self.__callbackTable)
-                               
-                if timeout == True:
-                    if self.__commandStatusList[-1].m_completed_flag == True:
-                        cbTerminal.write('\n' + Fore.RED + Style.BRIGHT + 'Command {}: {} - Timeout: Command completion exceeded timeout setting'.format(self.__instCount, self.__cmdName), Style.RESET_ALL)
-                    else :
-                        cbTerminal.write('\n' + Fore.RED + Style.BRIGHT + 'Command {}: {} - Timeout: Command is not completed'.format(self.__instCount, self.__cmdName), Style.RESET_ALL)
-                 
-                cbTerminal.write('\n')    
-      
-        finally:
-            self.__lock.release()
-            self.__callbackThread.do_run = False
-
+                     
     def initTables(self):
            
-        self.__paramTable.title = 'Parameters'
         self.__paramTable.horizontal_char = '='               
         self.__paramTable.align['Name'] = 'l'
         self.__paramTable.align['Description'] = 'l'   
+   
+        self.__paramTableLog.horizontal_char = '='               
+        self.__paramTableLog.align['Name'] = 'l'
+        self.__paramTableLog.align['Description'] = 'l' 
                       
         self.__callbackTable.horizontal_char = '='
         #self.__callbackTable.sortby = 'Time'
-        
-    @classmethod
-    def setCommandInjMngr(cls, cmdInjMngr):
-        cls.__cmdInjMngr = cmdInjMngr
-    
-    @classmethod
-    def setCommandServerMngr(cls, serverMngr):
-        cls.__commandServerMngr = serverMngr
-    
-    def setCommandDef(self, cmdDef):
-        self.__cmdMIBDef = cmdDef
-     
-#    def getLastCommand(self):
-#        return self.__lastCommand
-    
-    def getCallbackCompletedStatus(self):
-        return self.__callbackCompletedStatus
-    
-    def setCommandInterlock(self, lastCmdCompleted=None, lastCmdFailed=None, lastCmdTimeout=None):
-        
-        if lastCmdCompleted == True:
-            if self.__lastCommand is None:
-                raise Exception('Error: last command does not exist')
-            else:
-                self.__interlock[0] = True
-                              
-        if lastCmdFailed == True:
-            if self.__lastCommand is None:
-                raise Exception('Error: last command does not exist')
-            else:
-                self.__interlock[1] = True
-                    
-        if lastCmdTimeout == True:
-            if self.__lastCommand is None:
-                raise Exception('Error: last command does not exist')
-            else:
-                self.__interlock[2] = True
-                  
-    def getCommandInterlock(self):
-        return self.__interlock
-    
+                
     def printCommandInfo(self):
         """ Method for printing the command information before injection. """ 
-
-        if len(self.__cmdParameters) > 0:
-            userInput = False
-            isEditable = True
-            isModified = False
         
         if self.__instCount > 999:
             disp = 82
@@ -279,13 +235,16 @@ class Command():
         else:
             disp = 85
             
-        print('\n' + '*' * 95 + '\n' + Back.BLUE + Style.BRIGHT + f'Command {self.__instCount} {self.__cmdName:=^{disp}}' + Style.RESET_ALL)     
-        print('*' * 95 + '\n')
+        print('\n' + self.__cmdTerm.bold('*') * 95 + '\n' + Back.BLUE + Style.BRIGHT + f'Command {self.__instCount} {self.__cmdName:=^{disp}}' + Style.RESET_ALL + '\n' + self.__cmdTerm.bold('*') * 95 + '\n')     
+        self.__flush()
+                             
+        print(self.__cmdTerm.bold('Description ') + '-' * 83 + f'\n\n{self.__cmdDescription}\n\n' + self.__cmdTerm.bold('Parameters ') + '-' * 84 + '\n')
         
-        print('Description: {}\n'.format(self.__cmdDescription))
-        
-        if len(self.__cmdParameters) > 0:
+        if self.__cmdParameters != []:
             i = 0
+            userInput = False
+            isEditable = True
+            isModified = False            
             while i < len(self.__cmdParameters):
                 # user input
                 if str(self.__cmdParameters[i].m_value) == 'IBASE.Variant(m_nullFormat = False)':
@@ -314,77 +273,144 @@ class Command():
                     if self.__paramIsModified[i][0] == True:
                         modEngVal = Fore.BLUE + Style.BRIGHT + f'{self.__cmdParameters[i].m_isEngValue}' + Style.RESET_ALL
                     else:
-                        modEngVal = f'{self.__cmdParameters[i].m_isEngValue}'
+                        modEngVal = self.__cmdParameters[i].m_isEngValue
                     if self.__paramIsModified[i][1] == True:
                         modUnit = Fore.BLUE + Style.BRIGHT + f'{self.__cmdParameters[i].m_unit}' + Style.RESET_ALL
                     else:
-                        modUnit = f'{self.__cmdParameters[i].m_unit}'
+                        modUnit = self.__cmdParameters[i].m_unit
                     if self.__paramIsModified[i][2] == True:       
                         modRadix = Fore.BLUE + Style.BRIGHT + f'{self.__paramRadixDict.get(self.__cmdParameters[i].m_radix)}' + Style.RESET_ALL 
                     else:    
-                        modRadix = f'{self.__paramRadixDict.get(self.__cmdParameters[i].m_radix)}'
+                        modRadix = self.__paramRadixDict.get(self.__cmdParameters[i].m_radix)
                     if self.__paramIsModified[i][3] == True:             
                         modValueType = Fore.BLUE + Style.BRIGHT + self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')) + Style.RESET_ALL
                         modValue = Fore.BLUE + Style.BRIGHT + f"{vars(self.__cmdParameters[i].m_value).get('_v')}"  + Style.RESET_ALL
                     else: 
                         modValueType = self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d'))    
-                        modValue = f"{vars(self.__cmdParameters[i].m_value).get('_v')}"   
+                        modValue = vars(self.__cmdParameters[i].m_value).get('_v')   
                  
                     isModified = True       
                     self.__paramTable.add_row([modName, self.__cmdMIBDef.m_params[i].m_description, modEngVal, modUnit, modRadix, modValueType, modValue])
                 else:                 
                     self.__paramTable.add_row([self.__cmdParameters[i].m_name, self.__cmdMIBDef.m_params[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')), vars(self.__cmdParameters[i].m_value).get('_v')])
-                            
+                
+                self.__paramTableLog.add_row([self.__cmdParameters[i].m_name, self.__cmdMIBDef.m_params[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')), vars(self.__cmdParameters[i].m_value).get('_v')])
                 i += 1
                     
-            print(self.__paramTable)
-            print('\n')
+            print(self.__paramTable.get_string())
+            self.__flush()
             
-            if len(self.__repeaterGroup) > 0:
-                for rep in self.__repeaterGroup.keys():
-                    print(f'Counter: {rep} - Group: {self.__repeaterGroup[rep]}')
-                print('\n')    
-                
+            if self.__repeaterGroupName != {}:           
+                for rep in self.__repeaterGroupName.keys():
+                    #print(f'\nCounter: {rep} - Group: {self.__repeaterGroupName[rep]}')
+                    print(f'Counter: {rep} - Group: ' + '%s' % ', '.join(map(str, self.__repeaterGroupName[rep])))
+                print('\n')
+                    
             if userInput == True:
-                print(Fore.WHITE + Back.RED + Style.BRIGHT + '---: User input necessary' + Style.RESET_ALL)             
+                print(Fore.WHITE + Back.RED + Style.BRIGHT + '\nUser input necessary' + Style.RESET_ALL)             
             if isEditable == False:
-                print(Fore.WHITE + Back.BLACK + Style.BRIGHT + '---: Not editable' + Style.RESET_ALL)                    
-            print('---: Default parameter(s)')           
+                print(Fore.WHITE + Back.BLACK + Style.BRIGHT + '\nNot editable' + Style.RESET_ALL)                                      
             if isModified == True:
-                print(Fore.BLUE + Style.BRIGHT + '---: Modified parameter(s)', Style.RESET_ALL)
+                print(Fore.BLUE + Style.BRIGHT + '\nModified parameter(s)', Style.RESET_ALL)
                        
         else:
-            print('Parameters: command {} has no parameters\n'.format(self.__cmdName))
+            print(f'Command {self.__cmdName} has no parameters')
         
-        # time         
+        # time          
+        print('\n' + self.__cmdTerm.bold('Time ') + '-' * 90 + '\n')        
         if self.__relReleaseTime == None:           
-            print('\nRelease time: {} \nRelative release time: {} \nExecution time: {}'.format(TimeModule.timestamp2SCOSdate(self.__absReleaseTime), self.__relReleaseTime, TimeModule.timestamp2SCOSdate(self.__absExecutionTime)))
+            print(f'Release time: {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} \nRelative release time: - \nExecution time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}')
             
         else:
-            print('\nRelease time: To be calculated \nRelative release time: {} \nExecution time: {}'.format(self.__relReleaseTime, TimeModule.timestamp2SCOSdate(self.__absExecutionTime)))
+            print(f'Release time: To be calculated \nRelative release time: {self.__relReleaseTime} \nExecution time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}')
                 
-        if self.__timeout == None:
-            print('Timeout: {}'.format(self.__timeout))
+        if self.__timeout == self.__globalTimeout:
+            print(f'Timeout: {self.__timeout} sec (default)')
             
         else:
-            print('Timeout: {} sec'.format(self.__timeout))
+            print(Fore.BLUE + Style.BRIGHT + f'Timeout: {self.__timeout} sec (modified)' + Style.RESET_ALL)
         
         # interlock
-        if self.__interlock[0] == True:
-            print('\nInterlock: Inject command if last command succeeded')
-        if self.__interlock[1] == True:
-            print('\nInterlock: Inject command if last command failed')  
-        if self.__interlock[2] == True:
-            print('\nInterlock: Inject command if last command timed out')    
+        print('\n' + self.__cmdTerm.bold('Interlock ') + '-' * 85 + '\n')
+        if self.__interlock != []:
+            print('%s' % ', '.join(map(str, self.__interlock)))
+        else:
+            print(' -')
          
-        # checks    
-        print('\nPTV static: {} \nPTV dynamic: {} \nCEV: {}'.format(self.__checkStateTypeDict.get(self.__staticPtv), self.__checkStateTypeDict.get(self.__dynamicPtv), self.__cev))      
+        # checks     
+        print('\n' + self.__cmdTerm.bold('Check status ') + '-' * 82 + '\n')          
+        print(f'PTV static: {self.__checkStateTypeDict.get(self.__staticPtv)} \nPTV dynamic: {self.__checkStateTypeDict.get(self.__dynamicPtv)} \nCEV: {self.__cev}')      
                   
+    def printCallback(self, timeout=False):
+        """ Method for printing the full callback. """   
+               
+        # lock thread while printing, for clean output print
+        self.__lock.acquire()
+        try: 
+            
+            if self.__instCount > 999:
+                disp = 50
+            elif self.__instCount > 99:
+                disp = 52
+            elif self.__instCount > 9:
+                disp = 54
+            else:
+                disp = 56
+            
+            with open(self.__PIPE_PATH_Callb, 'w') as cbTerminal:                                          
+                cbTerminal.write('\n' + self.__cbTerm.bold('*') * 75 + '\n' + Fore.WHITE + Back.BLACK + Style.BRIGHT + f'Command status {self.__instCount}/{self.__cmdCount} {self.__cmdName:=^{disp}}' + Style.RESET_ALL + '\n' + self.__cbTerm.bold('*') * 75 + '\n')   
+                                     
+                cbTerminal.write(f'\nDescription: {self.__cmdDescription} \nRelease Time: {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} \nExecution Time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}\n')
+                            
+                # interlock
+                if self.__interlock != []:
+                    cbTerminal.write('Interlock: ' + '%s' % ', '.join(map(str, self.__interlock)) + '\n\n')
+                else:
+                    cbTerminal.write('Interlock: -\n\n')
+                    
+                if self.__callbackCompletedStatus == 'PASSED':
+                    cbTerminal.write(self.__cbTerm.green(self.__callbackTable.get_string()))
+                elif self.__callbackCompletedStatus == 'FAILED':
+                    cbTerminal.write(self.__cbTerm.red(self.__callbackTable.get_string()))
+                elif self.__callbackCompletedStatus == 'TIMEOUT':
+                    cbTerminal.write(self.__cbTerm.yellow(self.__callbackTable.get_string()))
+                else:
+                    cbTerminal.write(self.__callbackTable.get_string())
+                               
+                if timeout == True:
+                    # check if this works (Timeout in completed flag?)
+                    if self.__commandStatusList[-1].m_completed_flag == True:
+                        cbTerminal.write('\n' + Fore.RED + Style.BRIGHT + f'Command {self.__instCount}: {self.__cmdName} - Timeout: Command completion exceeded timeout setting' + Style.RESET_ALL)
+                    else :
+                        cbTerminal.write('\n\n' + Fore.RED + f'Command {self.__instCount}: {self.__cmdName} - Timeout: Command did not complete' + Style.RESET_ALL)
+                 
+                cbTerminal.write('\n')    
+      
+        finally:       
+            self.__lock.release()
+
+    def setCommandDef(self, cmdDef):
+        self.__cmdMIBDef = cmdDef
+         
+    def getCallbackCompletedStatus(self):
+        return self.__callbackCompletedStatus
+    
+    def setCommandInterlock(self, ilockList):        
+        self.__interlock = ilockList
+                          
+    def getCommandInterlock(self):
+        return self.__interlock
+
     def getReleaseTime(self):
         return self.__absReleaseTime
     
     def setReleaseTime(self, absReleaseTime):
         self.__absReleaseTime = absReleaseTime
+
+    def startReleaseTimeThread(self):
+
+        self.__releaseTimeThread = threading.Thread(target=self.setRelReleaseTime)
+        self.__releaseTimeThread.start()  
     
     def setRelReleaseTime(self):
         """ Method to get release time from previous command and calculate new release time. """
@@ -407,43 +433,39 @@ class Command():
                 nextCall += 0.2
                 time.sleep(nextCall - time.time())
                     
-            self.__absReleaseTime = TimeModule.relativeReleaseTime(prevReleaseTime, self.__relReleaseTime)
+            self.__absReleaseTime = TimeModule.calcRelativeReleaseTime(prevReleaseTime, self.__relReleaseTime)
           
-            #timeout
-            if self.__timeout != None:
-                self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout
+            #timeout            
+            self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout
        
             self.injectCommand()
 
         except Exception as exception:
-            print(Fore.RED + Style.BRIGHT + '\nException during release time setting:', exception, Style.RESET_ALL)
             self.__releaseTimeThread.do_run = False
+            print(self.__cmdTerm.bold_red(f'\nCommand {self.__instCount}: {self.__cmdName} - Exception during release time setting: ') + f'{exception}')            
+            self.__deregister(error=True)
      
     def getRelativeReleaseTime(self):
         return self.__relReleaseTime
-        
-    def startReleaseTimeThread(self):
-
-        self.__releaseTimeThread = threading.Thread(target=self.setRelReleaseTime)
-        self.__releaseTimeThread.start()        
-        
+                
     def getInjRequestID(self):
         return self.__injRequestID
+
+    def getInstCount(self):
+        return self.__instCount
+    
+    def getException(self):
+        return self.__exception
     
     # set default MIB command parameters (different structure for injection)
     def setMIBCommandParameters(self, counter=None):
-        
-        if counter is not None:
-            repeatGroup = []
-        
-        i = 0            
-        while i < len(self.__cmdMIBDef.m_params):
-            # repeater
+
+        repeater = False
+                
+        # get repeater group, if repeated parameters exist
+        i = 0           
+        while i < len(self.__cmdMIBDef.m_params):           
             if self.__cmdMIBDef.m_params[i].m_repeatSize > 0:
-                
-                #if 'repeatGroup' is not locals():
-                #raise Exception(' Please set counter value for command {} - {}'.format(self.__instCount, self.__cmdName)) 
-                
                 startGroupIndex = i+1
                 endGroupEndex = i + self.__cmdMIBDef.m_params[i].m_repeatSize
                 tempRepeatGroupName = []
@@ -454,48 +476,72 @@ class Command():
                     tempRepeatGroup.append(self.__cmdMIBDef.m_params[startGroupIndex])
                     startGroupIndex += 1
                     
-                repeatGroup.append(tempRepeatGroupName)
-                self.__repeaterGroup[self.__cmdMIBDef.m_params[i].m_name] = tempRepeatGroupName
-                            
-                for param in counter:
-                    if param[0] == self.__cmdMIBDef.m_params[i].m_name:
-                        # counter
-                        paramStruct = ITC.CommandParam(self.__cmdMIBDef.m_params[i].m_name, self.__cmdMIBDef.m_params[i].m_engValueIsDefault, self.__cmdMIBDef.m_params[i].m_unit, self.__cmdMIBDef.m_params[i].m_defaultRadix, IBASE.Variant('U', param[1]))    
-                        self.__cmdParameters.append(paramStruct)
-                                             
-#                        i = 1
-#                        while i < param[1]:
-#                            for repParam in tempRepeatGroup:
-#                                # counter parameter (number)
-#                                paramStruct = ITC.CommandParam(repParam.m_name, repParam.m_engValueIsDefault, repParam.m_unit, repParam.m_defaultRadix, repParam.m_defaultValue) 
-#                                self.__cmdParameters.append(paramStruct)                                                     
-#                            i += 1
-            # no repeater
-            else:
-                paramStruct = ITC.CommandParam(self.__cmdMIBDef.m_params[i].m_name, self.__cmdMIBDef.m_params[i].m_engValueIsDefault, self.__cmdMIBDef.m_params[i].m_unit, self.__cmdMIBDef.m_params[i].m_defaultRadix, self.__cmdMIBDef.m_params[i].m_defaultValue)                
-                self.__cmdParameters.append(paramStruct)
+                self.__repeaterGroupName[self.__cmdMIBDef.m_params[i].m_name] = tempRepeatGroupName
+                self.__repeaterGroup[self.__cmdMIBDef.m_params[i].m_name] = tempRepeatGroup
                 
-            paramIsModifiedList = [False, False, False, False, False]
-            # vector which describes if parameter is modified in method setCommandParameter 
-            self.__paramIsModified.append(paramIsModifiedList)             
-            
-            if self.__cmdMIBDef.m_params[i].m_repeatSize > 0:
-                self.__paramIsModified[i][3] = True
-                self.__paramIsModified[i][4] = True  
-                
+                repeater = True
             i += 1
+            
+        if repeater == False:          
+             i = 0    
+             while i < len(self.__cmdMIBDef.m_params):                 
+                paramStruct = ITC.CommandParam(self.__cmdMIBDef.m_params[i].m_name, self.__cmdMIBDef.m_params[i].m_engValueIsDefault, self.__cmdMIBDef.m_params[i].m_unit, self.__cmdMIBDef.m_params[i].m_defaultRadix, self.__cmdMIBDef.m_params[i].m_defaultValue)                
+                self.__cmdParameters.append(paramStruct)                           
+                # vector which describes if parameter is modified in method setCommandParameter 
+                self.__paramIsModified.append([False, False, False, False, False])               
+             
+                i += 1
+         
+        else:
+            if counter is None:     
+                for rep in self.__repeaterGroupName.keys():                   
+                    raise Exception(f'Please set counter value ({rep} - Group: ' + '%s' % ', '.join(map(str, self.__repeaterGroupName[rep])) + f') for command {self.__instCount} - {self.__cmdName}')             
+            
+            while i < len(self.__cmdMIBDef.m_params):
+                if self.__cmdMIBDef.m_params[i].m_repeatSize > 0: 
+                    for param in counter:
+                        if param[0] == self.__cmdMIBDef.m_params[i].m_name:
+                            # set counter
+                            paramStruct = ITC.CommandParam(self.__cmdMIBDef.m_params[i].m_name, self.__cmdMIBDef.m_params[i].m_engValueIsDefault, self.__cmdMIBDef.m_params[i].m_unit, self.__cmdMIBDef.m_params[i].m_defaultRadix, IBASE.Variant('U', param[1]))    
+                            self.__cmdParameters.append(paramStruct)
+                            self.__paramIsModified.append([False, False, False, True, True])                  
+
+                            j = 1
+                            while j < param[1]:
+                                for repParam in self.__repeaterGroup[param[0]]:
+                                    # set counter parameter (number)
+                                    paramStruct = ITC.CommandParam(repParam.m_name, repParam.m_engValueIsDefault, repParam.m_unit, repParam.m_defaultRadix, repParam.m_defaultValue) 
+                                    self.__cmdParameters.append(paramStruct)
+                                    self.__cmdMIBDef.m_params.insert(i+j, repParam)
+                                    self.__paramIsModified.append([False, False, False, False, False])      
+                                    
+                                    if repParam.m_repeatSize > 0:
+                                        paramStruct = ITC.CommandParam(repParam.m_name, repParam.m_engValueIsDefault, repParam.m_unit, repParam.m_defaultRadix, repParam.m_defaultValue) 
+                                        self.__cmdParameters.append(paramStruct) 
+                                        self.__paramIsModified.append([False, False, False, False, False]) 
+                                    i += 1                                                     
+                                j += 1
+
+                    
+                else:
+                    paramStruct = ITC.CommandParam(self.__cmdMIBDef.m_params[i].m_name, self.__cmdMIBDef.m_params[i].m_engValueIsDefault, self.__cmdMIBDef.m_params[i].m_unit, self.__cmdMIBDef.m_params[i].m_defaultRadix, self.__cmdMIBDef.m_params[i].m_defaultValue)                
+                    self.__cmdParameters.append(paramStruct)                           
+                    # vector which describes if parameter is modified in method setCommandParameter 
+                    self.__paramIsModified.append([False, False, False, False, False])               
+                 
+                i += 1                    
                           
     def setCommandParameter(self, name, isEng=None, unit=None, radix=None, valueType=None, value=None):
              
         i = 0
         while i < len(self.__cmdParameters): 
             if self.__cmdParameters[i].m_name == name:               
-                if self.__paramIsModified[i][4] == False:
+                if self.__paramIsModified[i][4] == False:                   
                     if self.__cmdMIBDef.m_params[i].m_isEditable == True:  
                         if isEng is not None:
                             self.__cmdParameters[i].m_isEngValue = isEng
                             self.__paramIsModified[i][0] = True
-                            self.__paramIsModified[i][4] = True
+                            self.__paramIsModified[i][4] = True                            
                         if unit is not None:
                             self.__cmdParameters[i].m_unit = unit
                             self.__paramIsModified[i][1] = True
@@ -507,87 +553,182 @@ class Command():
                         if value is not None and valueType is not None:                                        
                             self.__cmdParameters[i].m_value = IBASE.Variant(valueType, value)
                             self.__paramIsModified[i][3] = True
-                            self.__paramIsModified[i][4] = True                                                                                                  
+                            self.__paramIsModified[i][4] = True                         
+                        elif valueType is not None:
+                            raise Exception(f'Please enter a corresponding value for value type {self.__paramValueTypeDict.get(valueType)}')
+                        elif value is not None:
+                            raise Exception(f'Please enter a corresponding value type for value {value}')                                                                                           
                     break                   
             i += 1
                                                          
     def injectCommand(self):
-        
-        try:                                    
+                
+        try: 
+            self.__flush()                                  
             self.__info = ITC_INJ.ReleaseInfo(self.__absReleaseTime, IBASE.Time(0,0,False), IBASE.Time(0,0,False), self.__absExecutionTime, self.__staticPtv, self.__dynamicPtv, self.__cev, ITC_INJ.ACK_MIB_DEFAULT)    
             cmdRequest = ITC_INJ.CommandRequest(self.__context, self.__destination, self.__mapId, self.__vcId, self.__cmdName, self.__cmdParameters, self.__paramSets, self.__info, self.__ilockType, self.__ilockStageType, self.__additionalInfo, self.__tcRequestID)
             
             # wait until previous command is injected (pay attention if previous commands are not injected!)
             while self.__lastCommand is not None and self.__lastCommand.getInjRequestID() is 0:
                 pass  
-
-            # interlock
-            if self.__interlock[0] == True:
-                while self.__lastCommand.getCallbackCompletedStatus() is not 'PASSED':
-                    pass
-            if self.__interlock[1] == True:
-                while self.__lastCommand.getCallbackCompletedStatus() is not 'FAILED':
-                    pass
-            if self.__interlock[2] == True:
-                while self.__lastCommand.getCallbackCompletedStatus() is not 'TIMEOUT':
-                    pass   
-                
-            self.__injLock.acquire()
             
+            self.__injectionLock.acquire()
+            
+            # interlock
+            if self.__interlock != []:
+                if self.__lastCommand is None:
+                    raise Exception('Interlock - previous command does not exist')
+                for ilockStatus in self.__interlock:
+                    if ilockStatus not in ['PASSED', 'FAILED', 'TIMEOUT']:
+                        raise Exception("Interlock - please choose between 'PASSED', 'FAILED' and 'TIMEOUT'")
+                        
+                #print('Waiting for interlock status <<' + '%s' % ', '.join(map(str, self.__interlock)) + '>>...')
+                #sys.stdout.flush()
+                while self.__lastCommand.getCallbackCompletedStatus() not in self.__interlock:
+                    #pass
+                    for i in self.__ilockBar(iter(lambda:0,1)):                       
+                        self.__flushBar()                           
+                        if self.__lastCommand.getCallbackCompletedStatus() in self.__interlock:
+                            break                                                                                                     
+                print(f'...got status: <<{self.__lastCommand.getCallbackCompletedStatus()}>>')                     
+                self.__flush()
+                                                   
             # Release ASAP, finish bar immediately
             if str(self.__absReleaseTime) == str(IBASE.Time(0,0,False)):                
                                             
                 self.__bar.start()
                 self.__bar.finish()
-
+                self.__flushBar()
+                
             # Release time tagged
             else:                   
 #                while TimeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time() > 0.5:
-#                    pass 
-                
+#                    pass                 
                 releaseStamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)
                  
                 if releaseStamp - time.time() < 0.5:
                     self.__bar.start()
                     self.__bar.finish()
+                    self.__flushBar()
                     
                 else:    
-                    self.__bar.max_value = int(TimeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time())                    
+                    self.__bar.max_value = int(TimeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time())                         
                     self.__bar.start()
     
                     for i in range(self.__bar.max_value):
-                        self.__bar.update(i)                    
+                        self.__bar.update(i)                      
                         if releaseStamp - time.time() < 1.5:
                             break
                         time.sleep(1)
                        
                     self.__bar.finish()
- 
+                    self.__flushBar()
+                    
             self.__injRequestID = self.__cmdInjMngr.injectCmd(cmdRequest)
-            self.__injectionTime = self.__commandServerMngr.getUTC()           
-            print('Injecting command {}: {} - {} at {}...\n'.format(self.__instCount, self.__cmdName, self.__cmdDescription, TimeModule.timestamp2SCOSdate(self.__injectionTime)))
-            
-            self.__injLock.release()
-            # set release time to current UTC time if release time is empty
-            # backup, changed to update time of stage R 
-    #        if str(self.__absReleaseTime) == str(IBASE.Time(m_sec=0, m_micro=0, m_isDelta=False)):
-    #            self.__absReleaseTime = self.__commandServerMngr.getUTC()        
-    #        print(Fore.WHITE + Back.BLACK + Style.BRIGHT + "Release time: {}".format(TimeModule.timestamp2SCOSdate(self.__absReleaseTime)),Style.RESET_ALL + '\n')  
-    
-            if self == self.__cmdList[-1]:
-                print(Fore.GREEN + Style.BRIGHT + 'Done' + Style.RESET_ALL)
-    
+            self.__injectionTime = self.__commandServerMngr.getUTC()         
+            print(self.__cmdTerm.bold('Injecting ') + f'command {self.__instCount}/{self.__cmdCount}: {self.__cmdName} - {self.__cmdDescription} @ {TimeModule.ibaseTime2SCOSdate(self.__injectionTime)}...\n')
+                    
             # start callback thread          
             self.__callbackThread = threading.Thread(target=self.getCommandStatus)
             self.__callbackThread.start()
-                 
+
+            if self == self.__cmdList[-1]:
+                print(Fore.GREEN + 'Command injection successfully completed' + Style.RESET_ALL)
+                self.__flush()
+                self.__deregister()
+             
+            self.__injectionLock.release()
+            
         except Exception as exception:
             self.__exception = exception
-            print(Fore.RED + Style.BRIGHT + '\nException during command injection:', exception, Style.RESET_ALL)
+            print(self.__cmdTerm.bold_red(f'\nCommand {self.__instCount}: {self.__cmdName} - Exception during command injection: ') + f'{exception}')
+            self.__deregister(error=True)
+                                                              
+    def getCommandStatus(self):      
+        """ Get callback for individual instance """
+        
+        try:          
+            nextCall = time.time()            
+            while getattr(self.__callbackThread, 'do_run', True):                              
+                while self.__globalCallbackCounter < len(self.__commandStatusListStatic): 
+                    
+                    if self.__commandStatusListStatic[self.__globalCallbackCounter].m_request_id == self.__injRequestID:                       
+                        self.__commandStatusList.append(self.__commandStatusListStatic[self.__globalCallbackCounter])
+                          
+                        # get release time if neccesary                
+                        if self.__commandStatusList[self.__localCallbackCounter].m_stage == 's':
+                            if str(self.__absReleaseTime) == str(IBASE.Time(m_sec=0, m_micro=0, m_isDelta=False)):
+                                self.__absReleaseTime = TimeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
+                                
+                                # set timeout                      
+                                self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout
+                              
+                        #print('Callback for command {}: {} ({} - {}) {}'.format(self.__instCount, self.__cmdName, self.__commandStatusList[self.__localCallbackCounter].m_stage, self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status), self.__commandStatusList[self.__localCallbackCounter].m_updateTime))   
+                        self.__callbackTable.add_row([self.__commandStatusList[self.__localCallbackCounter].m_stage, self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status), self.__commandStatusList[self.__localCallbackCounter].m_updateTime])
+                                                                                                                            
+                        # callback finished, finish thread and print full callback
+                        if self.__commandStatusList[self.__localCallbackCounter].m_completed_flag == True: 
+                            
+                            self.__callbackThread.do_run = False
+                            
+                            self.__callbackCompletedTime = TimeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
+                            self.__callbackCompletedStage = self.__stageDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage)
+                            self.__callbackCompletedStatus = self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status)
+                                                        
+                            # timeout                           
+                            if self.__timeoutTimestamp - TimeModule.ibaseTime2stamp(self.__callbackCompletedTime) <= 0:
+                                # check if this works
+                                self.printCallback(timeout=True)
+                            else:
+                                self.printCallback()
+                                    
+                        self.__localCallbackCounter += 1    
+                    self.__globalCallbackCounter += 1
+                
+                # timeout if callback is not completed 
+                if self.__timeoutTimestamp is not None:
+                    if self.__timeoutTimestamp - time.time() <= 0:
+                        if self.__localCallbackCounter > 0 and self.__commandStatusList[self.__localCallbackCounter - 1].m_completed_flag == False:  
+                               
+                            self.__callbackThread.do_run = False
+                            
+                            self.__callbackCompletedTime = TimeModule.stamp2ibaseTime(time.time())
+                            self.__callbackCompletedStage = ''
+                            self.__callbackCompletedStatus = 'TIMEOUT'                        
+                                                                            
+                            self.printCallback(timeout=True)
+                            
+                # call method every 0.2 sec    
+                nextCall += 0.2
+                time.sleep(nextCall - time.time())
+
+        except Exception as exception:
+            self.__callbackThread.do_run = False
+            print(self.__cmdTerm.bold_red(f'\nCommand {self.__instCount}: {self.__cmdName} - Exception during callback reception: ') + f'{exception}')            
+            self.printCallback()
+                       
+    def __flush(self):
+        
+        sys.stdout.flush()
+        time.sleep(0.015)
+     
+    def __flushBar(self):
+
+        pb.streams.flush()
+        sys.stdout.flush()
+        time.sleep(0.01)        
+
+    @classmethod
+    def setCommandInjMngr(cls, cmdInjMngr):
+        cls.__cmdInjMngr = cmdInjMngr
+    
+    @classmethod
+    def setCommandServerMngr(cls, serverMngr):
+        cls.__commandServerMngr = serverMngr
             
     @classmethod    
     def getUpdateRequestStatus(cls, status):
-        status.m_updateTime = TimeModule.timestamp2SCOSdate(status.m_updateTime)
+        status.m_updateTime = TimeModule.ibaseTime2SCOSdate(status.m_updateTime)
         cls.__commandStatusListStatic.append(status)
                 
         #sort by time
@@ -607,10 +748,16 @@ class Command():
     @classmethod
     def getCommandCount(cls):
         return cls.__cmdCount
+    
+    @classmethod
+    def setTerminal(cls, term):
+    
+        cls.__cmdTerm = term    
 
     @classmethod
-    def createCallbackTerminal(cls):
+    def createCallbackTerminal(cls, term, terminalType):
         
+        cls.__cbTerm = term
         cls.__PIPE_PATH_Callb = '/tmp/callbackPipe'  
         
         if os.path.exists(cls.__PIPE_PATH_Callb):
@@ -620,77 +767,44 @@ class Command():
         os.mkfifo(cls.__PIPE_PATH_Callb)
             
         # new terminal subprocess (Test with different emulators: 'gnome-terminal', 'xterm', 'konsole',...) 
-        Popen(['gnome-terminal', '-e', 'tail -f %s' % cls.__PIPE_PATH_Callb])   
-               
+        Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Callb])   
+          
+        #os.environ.get('TERM') 
         with open(cls.__PIPE_PATH_Callb, 'w') as cbTerminal:
             cbTerminal.write('\n' +  cls.__cbTerm.bold('Waiting for command callbacks...') + '\n')
- 
         
-    def getInstCount(self):
-        return self.__instCount
+    @classmethod    
+    def getGlobalTimeout(cls):
+        return cls.__globalTimeout
     
-    def getException(self):
-        return self.__exception
-    
-    def getCommandStatus(self):      
-        """ Get callback for individual instance. """
+    @classmethod
+    def setGlobalTimeout(cls, globalTimeout):
+        cls.__globalTimeout = globalTimeout
         
-        try:          
-            nextCall = time.time()
+    @classmethod    
+    def __deregister(cls, error=False):
+        """ Deregister callback interface and clear internal buffer. """
+        
+        if error == False:                    
+            #print('\nWaiting for callback completion...', end='')
             
-            while getattr(self.__callbackThread, 'do_run', True):
-                              
-                while self.__globalCallbackCounter < len(self.__commandStatusListStatic): 
-                    if self.__commandStatusListStatic[self.__globalCallbackCounter].m_request_id == self.__injRequestID:
-                        
-                        self.__commandStatusList.append(self.__commandStatusListStatic[self.__globalCallbackCounter])
-                          
-                        # get release time if neccesary                
-                        if self.__commandStatusList[self.__localCallbackCounter].m_stage == 's':
-                            if str(self.__absReleaseTime) == str(IBASE.Time(m_sec=0, m_micro=0, m_isDelta=False)):
-                                self.__absReleaseTime = TimeModule.scosDate2timestamp(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
-                                
-                                # set timeout
-                                if self.__timeout != None:
-                                    self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout
-                        
-                        #print('Callback for command {}: {} ({} - {}) {}'.format(self.__instCount, self.__cmdName, self.__commandStatusList[self.__localCallbackCounter].m_stage, self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status), self.__commandStatusList[self.__localCallbackCounter].m_updateTime))   
-                        self.__callbackTable.add_row([self.__commandStatusList[self.__localCallbackCounter].m_stage, self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status), self.__commandStatusList[self.__localCallbackCounter].m_updateTime])
-                                                                                                                            
-                        # callback finished, finish thread and print full callback
-                        if self.__commandStatusList[self.__localCallbackCounter].m_completed_flag == True:                           
-                            self.__callbackCompletedTime = TimeModule.scosDate2timestamp(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
-                            self.__callbackCompletedStage = self.__stageDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage)
-                            self.__callbackCompletedStatus = self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status)
-                            
-                            # timeout
-                            if self.__timeoutTimestamp is not None:
-                                if self.__timeoutTimestamp - TimeModule.ibaseTime2stamp(self.__callbackCompletedTime) <= 0:
-                                    self.printCallback(timeout=True)
-                                else:
-                                    self.printCallback(timeout=False)
-                            else:     
-                                self.printCallback()
-                                                       
-                        self.__localCallbackCounter += 1    
-                    self.__globalCallbackCounter += 1
-                
-                # timeout if callback is not completed                
-                if self.__timeoutTimestamp != None:
-                    if self.__localCallbackCounter > 0 and self.__commandStatusList[self.__localCallbackCounter - 1].m_completed_flag == False:
-                        if self.__timeoutTimestamp - time.time() <= 0:
-                            self.printCallback(timeout=True)
-                            
-                # call method every 0.5 sec    
-                nextCall += 0.5
-                time.sleep(nextCall - time.time())
-
-        except Exception as exception:
-            print(Fore.RED + Style.BRIGHT + '\nCommand {}: {} - Exception during callback reception:{}.'.format(self.__instCount, self.__cmdName, exception), Style.RESET_ALL)
-            self.__callbackThread.do_run = False
-            self.printCallback()
+            for cmd in cls.__cmdList:           
+                while cmd.__callbackCompletedStatus not in ['PASSED', 'FAILED', 'TIMEOUT']:
+                    #pass 
+                    for i in cls.__animMarker(iter(lambda:0,1)):             
+                        #time.sleep(0.1) 
+                        if cmd.__callbackCompletedStatus in ['PASSED', 'FAILED', 'TIMEOUT']:
+                            break                        
+                continue            
+            print('\nAll callbacks received...')  
+            
+        cls.__cmdInjMngr.deregister()
+        print('Unregistered from external command server...')
+        #sys.stdout.write('/033[FWaiting for command callbacks...done\nDeregistered from external command server')
+        
+        if error==True:
+            sys.exit(1)
             
     absReleaseTime = property(getReleaseTime, setReleaseTime)
     relReleaseTime = property(getRelativeReleaseTime)
-    interlock = property(getCommandInterlock)
-       
+        

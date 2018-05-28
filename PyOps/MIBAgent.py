@@ -15,6 +15,7 @@ class MIBAgent(BaseAgent):
         self.__namingService = 'MIB_PRO_001'
         self.__serverMngrType = IMIB_PRO.MIBmngr
         self.__commandDefIterator = None
+        self.__paramDefIterator = None
            
     def getNamingService(self):
         return self.__namingService   
@@ -24,7 +25,13 @@ class MIBAgent(BaseAgent):
     
     def commandDefinitionIterator(self):
         self.__commandDefIterator = self._serverMngr.getCommandDefIterator()
-         
-    def commandDefinition(self, command):
+
+    def commandMIBDefinition(self, command):
         return self.__commandDefIterator.getDef(command)
+    
+    def parameterDefinitionIterator(self):
+        self.__paramDefIterator = self._serverMngr.getParamDefIterator()
+     
+    def parameterMIBDefinition(self, parameter):
+        return self.__paramDefIterator.getDef(parameter)
     

@@ -7,8 +7,6 @@ CommandAgent -- describes access to command injection services and command callb
 
 from BaseAgent import BaseAgent
 import ITC_INJ
-from datetime import datetime
-import sys
 
 class CommandAgent(BaseAgent):
        
@@ -37,18 +35,10 @@ class CommandAgent(BaseAgent):
     def getCmdInjMngr(self):
         return self.__cmdInjMngr
                             
-    def deregister(self, sec):
-        """ Deregister callback interface after x sec and clear internal buffer. """
-        
-        time1 = datetime.now()
-        while(datetime.now() - time1).seconds <= sec:
-            pass
-        
+    def deregister(self):
+        """ Deregister callback interface and clear internal buffer """
+                
         self.__cmdInjMngr.deregister()
-        print('\nDeregistered from external command server, exiting programm...\n')
+        print('Unregistered from external command server...')
         
-        if sec == 1:
-            sys.exit(1)
-        else:
-            sys.exit(0)
             

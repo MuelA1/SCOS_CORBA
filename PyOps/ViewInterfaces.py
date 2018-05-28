@@ -61,5 +61,4 @@ class PacketView(View, ITMP_PRO__POA.TMpacketMngrView):
     
     def notifyTMpackets(self, packet):         
         TMPacket.getPacketNotification(packet) 
-         
-         
+                 

@@ -8,14 +8,13 @@ TMPacket -- describes packet filters and packet callback progression
 import ITMP
 import os
 from subprocess import Popen
-from blessings import Terminal
 
 class TMPacket():
     
     __packetView = None
     __notifyPacketListStatic = []
     __PIPE_PATH_Packet = None
-    __packetTerm = Terminal()
+    __packetTerm = None
     __tmPacketMngr = None
     
     def __init__(self, apIds=None, filingKeys=None, header=False, body=False, param=True):
@@ -56,11 +55,12 @@ class TMPacket():
         cls.__notifyPacketListStatic.append(packet)      
 
         with open(cls.__PIPE_PATH_Packet, 'w') as packetTerminal:
-            packetTerminal.write(packet) 
+            packetTerminal.write(str(packet) + '\n\n') 
         
     @classmethod
-    def createPacketNotificationTerminal(cls):
+    def createPacketNotificationTerminal(cls, term, terminalType):
         
+        cls.__packetTerm = term
         cls.__PIPE_PATH_Packet = '/tmp/packetNotifyPipe'  
         
         if os.path.exists(cls.__PIPE_PATH_Packet):
@@ -70,7 +70,7 @@ class TMPacket():
         os.mkfifo(cls.__PIPE_PATH_Packet)
             
         # new terminal subprocess ('xterm' also possible)   
-        Popen(['gnome-terminal', '-e', 'tail -f %s' % cls.__PIPE_PATH_Packet])   
+        Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Packet])   
                
         with open(cls.__PIPE_PATH_Packet, 'w') as packetTerminal:
             packetTerminal.write('\n' +  cls.__packetTerm.bold('Waiting for TM packets...') + '\n')    

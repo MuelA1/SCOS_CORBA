@@ -23,7 +23,7 @@ class BaseAgent():
     def connect(self, ip, port, namingService, serverMngrType):
         self.__ip = ip
         self.__port = port
-        self._serverMngr = self.__orb.string_to_object('corbaname::{0}:{1}/NameService#{2}'.format(self.__ip, self.__port, namingService))   
+        self._serverMngr = self.__orb.string_to_object(f'corbaname::{self.__ip}:{self.__port}/NameService#{namingService}')   
         self._serverMngr = self._serverMngr._narrow(serverMngrType)       
       
     def createCorbaObject(self, mngrViewObject, poaIdStr):
