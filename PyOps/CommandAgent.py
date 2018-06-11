@@ -35,10 +35,3 @@ class CommandAgent(BaseAgent):
     def getCmdInjMngr(self):
         return self.__cmdInjMngr
                             
-    def deregister(self):
-        """ Deregister callback interface and clear internal buffer """
-                
-        self.__cmdInjMngr.deregister()
-        print('Unregistered from external command server...')
-        
-            

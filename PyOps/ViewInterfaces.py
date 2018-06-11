@@ -25,7 +25,6 @@ class CommandInjectMngrView(ITC_INJ__POA.CommandInjectMngrView):
     
     # command status    
     def updateRequestStatus(self, status):
-        #print(status)
         #print(Fore.RED + Back.BLUE + Style.BRIGHT + 'Time: {}'.format(time.time()), Style.RESET_ALL)
         Command.getUpdateRequestStatus(status)
                             

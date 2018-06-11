@@ -10,14 +10,18 @@ sys.path.append('AAIDL')
 from Operator import Operator
 
 operator = Operator()
+operator.setGlobalCommandTimeout(80) 
+operator.setGlobalPacketTimeout(20)
 
-# mib=True, command=True, parameter=True, packet=True
-# '192.168.56.101' '20001'
-operator.connect('192.168.197.50','20001', parameter=False, packet=False)
+commandFlag=True
+parameterFlag=False
+packetFlag=False
+
+operator.connect('192.168.197.50','20001', command=commandFlag, parameter=parameterFlag, packet=packetFlag)
 
 # terminal='konsole' or 'gnome-terminal' or 'xterm'...
-operator.initialize(terminal='konsole', parameter=False, packet=False)
-    
+operator.initialize(terminal='konsole', command=commandFlag, parameter=parameterFlag, packet=packetFlag)
+   
 #==============================================================================
 #                          Command examples
 #==============================================================================
@@ -77,7 +81,7 @@ operator.initialize(terminal='konsole', parameter=False, packet=False)
 #==============================================================================
 #                              Test 0 (single command)
 #==============================================================================
-
+    
 def test_singleCmd(cmd):
     
     global command
@@ -101,13 +105,14 @@ def test_ping(number):
 #==============================================================================
 def test_interlock(): 
     
-    global YMC25104, PING_2_11    
+    global YMC25104, PING_2_6, PING_7_11   
          
     YMC25104 = operator.createCommand('YMC25104')  
     operator.setCommandParameter(YMC25104, 'YMP00015', isEng=True, valueType='S', value='BATT_STR_0')
     
-    PING_2_11 = operator.createCommand('YYC00000', numberOfCommands=10, interlock=['PASSED', 'FAILED'])               
-                
+    PING_2_6 = operator.createCommand('YYC00000', numberOfCommands=5, interlock=['PASSED'])               
+    PING_7_11 = operator.createCommand('YYC00000', numberOfCommands=5, interlock=[])             
+
 # Check:
     # Full callback?
     # Interlock works? Also for list?
@@ -119,8 +124,8 @@ def test_absReleaseTime():
     
     global PPC00201, PING_2_6 
  
-    PPC00201 = operator.createCommand('PPC00201', absReleaseTime='2018.149.12.48.30.000')
-    PING_2_6 = operator.createCommand('YYC00000', absReleaseTime='2018.149.12.49.20.000', numberOfCommands=5)
+    PPC00201 = operator.createCommand('PPC00201', absReleaseTime='2018.163.12.20.30.000')
+    PING_2_6 = operator.createCommand('YYC00000', absReleaseTime='2018.163.12.21.20.000', numberOfCommands=5)
  
 # Check:
     # absolute release time for multiple commands? 
@@ -132,7 +137,7 @@ def test_relReleaseTime():
     
     global PPC00A00, YMC22003_2_6            
           
-    #PPC00A00 = operator.createCommand('PPC00A00', absReleaseTime='2018.149.12.13.25.928234')
+    #PPC00A00 = operator.createCommand('PPC00A00', absReleaseTime='2018.163.12.13.25.928234')
     PPC00A00 = operator.createCommand('PPC00A00')
     YMC22003_2_6 = operator.createCommand('YMC22003', numberOfCommands=5, relReleaseTime='00.00.10')
             
@@ -146,13 +151,14 @@ def test_relReleaseTime():
 #==============================================================================
 def test_absExecutionTime():
     
-    global PPC00A00   
-    PPC00A00 = operator.createCommand('PPC00A00', absExecutionTime='2018.149.12.50.10.928234')
+    global PPC00A00, PING   
+    
+    PPC00A00 = operator.createCommand('PPC00A00', absExecutionTime='2018.163.12.35.40.928234')
+    PING = operator.createCommand('PING', interlock=[])
 
 # Check:
-    # absolute execution time in UTC 0? 
-    # what happens in SCOS?
-    # callback?
+    # Timeout based on execution time?
+    # SCOS Timeout?
       
 #==============================================================================
 #                                 Test 6 (timeout)
@@ -165,9 +171,9 @@ def test_timeout():
     operator.setCommandParameter(YMC25101, 'YMP00003', valueType='U', value=8)
     
 # Check:
-    # Timeout if completed_flag = True?
     # Release ASAP, timeout in 60s? 
     # Does programm work correctly?
+    # SCOS Timeout?
         
 #==============================================================================
 #                                 Test 7 (timeout)
@@ -175,13 +181,14 @@ def test_timeout():
 def test_timeout2():
     
     global PPC00A00
-    PPC00A00Kwargs = {'absReleaseTime':'2018.149.12.52.25.928234',
+    PPC00A00Kwargs = {'absReleaseTime':'2018.163.13.00.25.928234',
                       'timeout':100}
-    PPC00A00 = operator.createCommand('PPC00A00', **PPC00A00Kwargs, numberOfCommands=1)
+    PPC00A00 = operator.createCommand('PPC00A00', **PPC00A00Kwargs)
 
 # Check:
     # Release time correct? Timeout 100s later? 
-    # Does programm work correctly?        
+    # Does programm work correctly?
+    # SCOS Timeout?        
 
 #==============================================================================
 #                           Test 8 (multiple time settings)
@@ -190,15 +197,14 @@ def test_multipleTimeSettings():
     
     global YMC22003, PING_2_6, PPC00400_7
     
-    YMC22003Kwargs = {'absReleaseTime':'2018.149.12.50.40.928234',
+    YMC22003Kwargs = {'absReleaseTime':'2018.163.13.15.40.928234',
                       'timeout':100}
     PING_2_6Kwargs = {'relReleaseTime':'00.00.05',
                       'timeout':100}
-    PPC00400_7Kwargs = {'absExecutionTime':'2018.149.12.51.20.928234'}
+    PPC00400_7Kwargs = {'absExecutionTime':'2018.163.13.17.20.928234'}
     
-    YMC22003 = operator.createCommand('YMC22003', **YMC22003Kwargs)
-         
-    PING_2_6 = operator.createCommand('YYC00000', **PING_2_6Kwargs, numberOfCommands=5)
+    YMC22003 = operator.createCommand('YMC22003', **YMC22003Kwargs)         
+    PING_2_6 = operator.createCommand('YYC00000', **PING_2_6Kwargs, numberOfCommands=5)    
     
     PPC00400_7 = operator.createCommand('PPC00400', **PPC00400_7Kwargs)
     operator.setCommandParameter(PPC00400_7, 'PPP00004', valueType='D', value=5)
@@ -213,7 +219,7 @@ def test_multipleCommands():
     
     global PPC02001, PPC00600_2_6
     
-    PPC02001Kwargs = {'absReleaseTime':'2018.149.12.50.40.928234',
+    PPC02001Kwargs = {'absReleaseTime':'2018.163.14.00.40.928234',
                       'timeout':100}
     PPC00600_2_6Kwargs = {'relReleaseTime':'00.00.05',
                       'timeout':100}
@@ -236,9 +242,9 @@ def test_multipleCommands2():
          
     global DSC32000_1, YYC00000_2_6, PPC00201_7, PPC01900_8_10
             
-    DSC32000_1Kwargs = {'absReleaseTime':'2018.149.12.15.20.928234'}           
+    DSC32000_1Kwargs = {'absReleaseTime':'2018.163.14.29.20.928234'}           
     YYC00000_2_6Kwargs = {'relReleaseTime':'00.00.04'}
-    PPC00201_7Kwargs = {'absReleaseTime':'2018.149.12.16.50.928234'}
+    PPC00201_7Kwargs = {'absReleaseTime':'2018.163.14.31.50.928234'}
     PPC01900_8_10Kwargs = {'relReleaseTime':'00.00.05'}
 
     DSC32000_1 = operator.createCommand('DSC32000', **DSC32000_1Kwargs)
@@ -278,52 +284,109 @@ def test_repeater():
 #==============================================================================
 #                          Start tests
 #==============================================================================    
- 
-#test_singleCmd('FEINISVR')
-test_ping(5)
-#test_interlock()
-#test_absReleaseTime()
-#test_relReleaseTime()
-#test_absExecutionTime()
-#test_timeout()
-#test_timeout2()
-#test_multipleTimeSettings()
-#test_multipleCommands()
-#test_multipleCommands2()
-#test_repeater()
+
+if commandFlag == True: 
+    
+    test_singleCmd('FEINISVR')
+    #test_ping(5)
+    #test_interlock()
+    #test_absReleaseTime()
+    #test_relReleaseTime()
+    #test_absExecutionTime()
+    #test_timeout()
+    #test_timeout2()
+    #test_multipleTimeSettings()
+    #test_multipleCommands()
+    #test_multipleCommands2()
+    #test_repeater()
            
 #==============================================================================
 #                          Inject command(s)
 #==============================================================================
         
-# no arguments --> all cmds are printed and injected
-operator.printCommandInformation()
-operator.injectCommands()
+    # no arguments --> all cmds are printed and injected
+    operator.printCommandInformation()
+    operator.injectCommand()
+    
+    # Check:
+        # test with all commands, single commands and command list
+  
+#==============================================================================
+#                          Command Logging
+#==============================================================================     
+     
+    #log file will be overwritten for each test
+    #operator.printLogfile('pyops_logfile.txt')  
 
-# Check:
-    # test with all commands, single commands and command list
-
+#==============================================================================
+    operator.pauseForExecution(5)
+    operator.deregisterCommandMngr()    
 #==============================================================================
 #                          TM parameter(s)
 #==============================================================================    
 
-#param = operator.getTMParameter('PBTPWR00')
-#param2 = operator.getTMParameter('PBTPWR01')
-#param3 = operator.getTMParameter('PBTCAP03')
-#param4 = operator.getTMParameter('AYTM0M00')
+if parameterFlag == True:
+    
+    param1 = operator.registerTMParameter('PBTPWR00', notifyEveryUpdate=False, notifySelectedValChange='eng', notifyOnlyOnce=False)
+    param2 = operator.registerTMParameter('PBTPWR01')
+    param3 = operator.registerTMParameter('PBTCAP03')
+    param4 = operator.registerTMParameter('AYTM0M00')
+    #param5 = operator.registerTMParameter('DSTFEF00')
+    #param6 = operator.registerTMParameter('DSTFEF01')
 
+# ------------------------------- get values ----------------------------------
+    
+    lastVal1 = param1.getLastValidValue()
+    lastVal2 = param2.getLastValidValue(raw=True)
+    lastVal3 = param3.getLastValidValue()
+    lastVal4 = param4.getLastValidValue()
+    #lastVal5 = param5.getLastValidValue()
+    #lastVal6 = param6.getLastValidValue()
+
+    
+#    operator.pauseForExecution(30)
+#    lastVal1 = param1.getLastValidValue()
+#    print(lastVal1)
+#    operator.pauseForExecution(30)
+#    lastVal2 = param1.getLastValidValue()
+#    print(lastVal2)
+#    operator.pauseForExecution(30)
+#    lastVal3 = param1.getLastValidValue()
+#    print(lastVal3)
+#    operator.pauseForExecution(30)
+#    lastVal4 = param1.getLastValidValue()
+#    print(lastVal4)
+#    operator.pauseForExecution(30)
+    
+    operator.unregisterAllTmParameters()
+      
+# Check:
+    # Does function return last valid value?
+    # Register parameter only once and use function for multiple calls?  
+    # what if value is not valid (param5, param6)
+    
 #==============================================================================
 #                          TM packet(s)
 #============================================================================== 
 
-#packet = operator.getTMPacket()
-#packet2 = operator.getTMPacket(header=True)
+if packetFlag == True:
     
+    packet1 = operator.registerTMPacket(31900)
+    packet2 = operator.registerTMPacket(35800)
+    packet3 = operator.registerTMPacket(40000)
+
+# ----------------------------- wait for packets ------------------------------
+
+    if packet3.verifyPacketReception(timeout=15) == 'RECEIVED':
+        pass
+    elif packet3.verifyPacketReception() == 'TIMEOUT':
+        pass
+        
+    operator.unregisterAllTmPackets()
+
+# Check:
+    # Does packet reception function work?
+    # Register packet only once and use function for multiple calls?
+
 #==============================================================================
-#                          Logging
-#==============================================================================     
- 
-#log file will be overwritten for each test
-#operator.printLogfile('pyops_logfile.txt')  
-    
-#==============================================================================      
+   

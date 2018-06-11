@@ -6,6 +6,7 @@ Operator -- describes an interface where every object is created
 """
 
 import sys
+import time
 from time import sleep
 from MIBAgent import MIBAgent
 from CommandAgent import CommandAgent
@@ -53,7 +54,7 @@ class Operator():
         except Exception as exception: 
             print(Fore.RED + Style.BRIGHT + '\nException during initialisation: ' + Style.RESET_ALL + f'{exception}')
             if self.__cmdAgent.getCmdInjMngr() is not None:
-                self.deregister()
+                self.deregisterCommandMngr(error=True)
             sys.exit(1)
             
     def __createViewInterfaces(self, terminal=None, mib=True, command=True, parameter=True, packet=True):      
@@ -135,12 +136,12 @@ class Operator():
             
             else:
                 print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Please enter an integer number to create multiple commands')
-                self.deregister()
+                self.deregisterCommandMngr(error=True)
                 sys.exit(1)
                 
         except Exception as exception: 
             print(Fore.RED + Style.BRIGHT + f'\nException during command creation of command {cmdName}: ' + Style.RESET_ALL  + f'{exception}')    
-            self.deregister()   
+            self.deregisterCommandMngr(error=True)   
             sys.exit(1)
             
     def setCommandParameter(self, command, paramName, **paramKwargs):    
@@ -155,7 +156,7 @@ class Operator():
 
         except Exception as exception: 
             print(Fore.RED + Style.BRIGHT + f'\nException during setting of parameter {paramName}: ' + Style.RESET_ALL  + f'{exception}')    
-            self.deregister()   
+            self.deregisterCommandMngr(error=True)   
             sys.exit(1)
                 
     def printCommandInformation(self, *cmds):
@@ -182,26 +183,27 @@ class Operator():
                     for singleCmd in cmd:
                         singleCmd.printCommandInfo()
                     
-    def injectCommands(self, *cmds):
-        
-        inp = str(input('Do you want to continue with the command injection? ' + Style.BRIGHT + '(Y/N)' + Style.RESET_ALL + ': ')).lower().strip()
-                
-        try:
-            if inp[0] == 'y':
-                self.__inject(*cmds)
-                       
-            elif inp[0] == 'n':
-                self.deregister()    
-                               
-            else:
-                print(Fore.RED + Style.BRIGHT +'Invalid input, please try again...' + Style.RESET_ALL)
-                return self.injectCommands()
-        
-        except Exception as exception:  
-            print(Fore.RED + Style.BRIGHT + '\nInput error: ' + Style.RESET_ALL + f'{exception}')
-            return self.injectCommands()       
+#    def injectCommands(self, *cmds):
+#        
+#        inp = str(input('Do you want to continue with the command injection? ' + Style.BRIGHT + '(Y/N)' + Style.RESET_ALL + ': ')).lower().strip()
+#                
+#        try:
+#            if inp[0] == 'y':
+#                self.__inject(*cmds)
+#                       
+#            elif inp[0] == 'n':
+#                self.deregister()
+#                sys.exit()
+#                               
+#            else:
+#                print(Fore.RED + Style.BRIGHT +'Invalid input, please try again...' + Style.RESET_ALL)
+#                return self.injectCommands()
+#        
+#        except Exception as exception:  
+#            print(Fore.RED + Style.BRIGHT + '\nInput error: ' + Style.RESET_ALL + f'{exception}')
+#            return self.injectCommands()       
           
-    def __inject(self, *cmds):
+    def injectCommand(self, *cmds):
         """ Method to inject all commands in the global command list """
                 
         print('\n' + Style.BRIGHT + '*' * 95 + '\n' + Back.RED + f"{'Command injection':=^95}"  + Style.RESET_ALL + '\n' + Style.BRIGHT + '*' * 95 + Style.RESET_ALL + '\n')      
@@ -220,28 +222,14 @@ class Operator():
                     cmdList.append(cmd)
                 elif type(cmd) == list:
                     cmdList.extend(cmd)
-
-        # check if there is a previous command with absolute release time to calculate relative release time
-        absReleaseTime = False
                        
-        if len(cmdList) > 0:
-            for cmd in cmdList:                
-                if cmd.relReleaseTime is None:                   
-                    cmd.injectCommand()
-                    if absReleaseTime == False:
-                        absReleaseTime = True
-                        
-                elif absReleaseTime == True:
-                    # start thread to get relative release time from previous command and inject cmd 
-                    cmd.startReleaseTimeThread()
-                    
-                else:
-                    print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Please create a command which defines the absolute release time')
-                    self.deregister()
-                    break
+        if cmdList != []:
+            for cmd in cmdList:                                           
+                cmd.injectCommand()
+
         else:
             print(Fore.RED + Style.BRIGHT + '\nError during command injection: ' + Style.RESET_ALL + 'Injection list is empty')
-            self.deregister()            
+            self.deregisterCommandMngr(error=True)            
                                  
     def setCommandInterlock(self, command, ilockList):
         
@@ -252,20 +240,28 @@ class Operator():
             for cmd in command:
                 cmd.setCommandInterlock(ilockList)
 
-    def setGlobalTimeout(self, timeout):
+    def setGlobalCommandTimeout(self, timeout):
         
-        Command.setGlobalTimeout(timeout)
+        Command.setGlobalCommandTimeout(timeout)
 
-    def getGlobalTimeout(self):
+    def getGlobalCommandTimeout(self):
         
-        return Command.getGlobalTimeout()
+        return Command.getGlobalCommandTimeout()
         
-    def getTMParameter(self, paramName):
+    def setGlobalPacketTimeout(self, timeout):
+        
+        TMPacket.setGlobalPacketTimeout(timeout)
+
+    def getGlobalPacketTimeout(self):
+        
+        return TMPacket.getGlobalPacketTimeout()
+    
+    def registerTMParameter(self, paramName, **paramKwargs):
 
         try:        
             paramDef = self.__mibAgent.parameterMIBDefinition(paramName)
             
-            parameter = TMParameter(paramDef.m_name, paramDef.m_description)
+            parameter = TMParameter(paramDef.m_name, paramDef.m_description, **paramKwargs)
             parameter.setParameterDef(paramDef)
             parameter.getParameterFromServer(self.__tmParamAgent.getSingleTMParamMngr())
             parameter.registerParameter()
@@ -274,28 +270,50 @@ class Operator():
 
         except Exception as exception: 
             print(Fore.RED + Style.BRIGHT + '\nException during parameter reception: ' + Style.RESET_ALL + f'{exception}')            
-            if parameter.getViewKey() != 0:
+            if 'parameter' is locals() and parameter.getViewKey() != 0:
                 parameter.unregisterParamView()
             
-    def getTMPacket(self, **packetKwargs):
+    def registerTMPacket(self, filingKey, **packetKwargs):
 
         try:        
-            packet = TMPacket(**packetKwargs)
+            packet = TMPacket(filingKey, **packetKwargs)
             packet.setStreamIds(self.__tmPacketAgent.getTimeMngr())
             packet.registerTMpackets()
         
             return packet
 
         except Exception as exception: 
-            print(Fore.RED + Style.BRIGHT + '\nException during packet reception: ' + Style.RESET_ALL + f'{exception}')
+            print(Fore.RED + Style.BRIGHT + '\nException during packet reception: ' + Style.RESET_ALL + f'{exception}')           
+            if 'packet' is locals() and packet.getViewKey() != 0:
+                packet.unregisterTmPacket()
+    
+    def unregisterAllTmParameters(self):
+        
+        TMParameter.unregisterAllTmParameters()
+
+    def unregisterAllTmPackets(self):
+        
+        TMPacket.unregisterAllTmPackets()
     
     def printLogfile(self, path):
         
         with open(path, 'w') as log:
             for cmd in Command.getCommandList():
                 log.write(str(cmd) + '\n')
+                
+                if cmd == Command.getCommandList()[-1]:
+                    log.write('=' * 95 + '\nEnd of log\n' + '=' * 95 + '\n')
 
-    def deregister(self):
+    def pauseForExecution(self, sec):
+        
+        print('Waiting for commands to be executed...', end='')
+        currTime = time.time()
+        while time.time() - currTime < sec:
+            pass
+        print('continuing')
+        
+    def deregisterCommandMngr(self, **error):
          
-        self.__cmdAgent.deregister()
+        Command.deregister(**error)
+        
         
