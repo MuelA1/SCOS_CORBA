@@ -23,8 +23,8 @@ class CommandAgent(BaseAgent):
     def getServerMngrType(self):
         return self.__serverMngrType
     
-    def createCmdInjMngrView(self, cmdView, idString):
-        self.__cmdInjMngrView = self.createCorbaObject(cmdView, idString)
+    def createCmdInjMngrView(self, cmdView):
+        self.__cmdInjMngrView = self.createCorbaObject(cmdView)
             
     def getCmdInjMngrView(self):
         return self.__cmdInjMngrView

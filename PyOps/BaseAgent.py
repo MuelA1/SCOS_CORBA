@@ -5,7 +5,6 @@
 BaseAgent -- describes basic operations used by other agent classes
 """
 
-#from abc import ABC, abstractmethod
 import CORBA
 
 class BaseAgent():
@@ -13,11 +12,7 @@ class BaseAgent():
     def __init__(self):      
         self.__ip = ''
         self.__port = ''
-        self._serverMngr = None
-        
-        #self.__poaType = 'omniINSPOA'       
-        #self.__poaIdStr = 'Object1'
-       
+        self._serverMngr = None               
         self.__orb = CORBA.ORB_init()
         
     def connect(self, ip, port, namingService, serverMngrType):
@@ -26,11 +21,8 @@ class BaseAgent():
         self._serverMngr = self.__orb.string_to_object(f'corbaname::{self.__ip}:{self.__port}/NameService#{namingService}')   
         self._serverMngr = self._serverMngr._narrow(serverMngrType)       
       
-    def createCorbaObject(self, mngrViewObject, poaIdStr):
-        
-        #poa = self.__orb.resolve_initial_references(self.__poaType)
-        #poa.activate_object_with_id(poaIdStr, mngrViewObject)
-        
+    def createCorbaObject(self, mngrViewObject):
+                
         poa = self.__orb.resolve_initial_references('RootPOA')
         poa.activate_object(mngrViewObject)
         mngrView = poa.servant_to_reference(mngrViewObject)

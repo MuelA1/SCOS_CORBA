@@ -25,8 +25,8 @@ class TMParamAgent(BaseAgent):
     def getServerMngrType(self):
         return self.__serverMngrType
     
-    def createParamView(self, paramView, idString):
-        self.__paramView = self.createCorbaObject(paramView, idString)
+    def createParamView(self, paramView):
+        self.__paramView = self.createCorbaObject(paramView)
         return self.__paramView
         
     def getParamView(self):

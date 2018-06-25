@@ -25,8 +25,8 @@ class TMPacketAgent(BaseAgent):
     def getServerMngrType(self):
         return self.__serverMngrType
     
-    def createPacketView(self, packetView, idString):
-        self.__packetView = self.createCorbaObject(packetView, idString)
+    def createPacketView(self, packetView):
+        self.__packetView = self.createCorbaObject(packetView)
         return self.__packetView
         
     def getPacketView(self):

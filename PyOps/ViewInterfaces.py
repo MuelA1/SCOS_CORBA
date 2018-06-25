@@ -12,8 +12,6 @@ import ITC_INJ__POA, IBASE_IF__POA, ITM_PRO__POA, ITMP_PRO__POA
 from Command import Command
 from tmParameter import TMParameter
 from tmPacket import TMPacket
-#from colorama import Fore, Back, Style
-#import time
 
 class CommandInjectMngrView(ITC_INJ__POA.CommandInjectMngrView):
            
@@ -22,13 +20,10 @@ class CommandInjectMngrView(ITC_INJ__POA.CommandInjectMngrView):
                                                                               
     def ping(self):
         pass
-    
-    # command status    
+      
     def updateRequestStatus(self, status):
-        #print(Fore.RED + Back.BLUE + Style.BRIGHT + 'Time: {}'.format(time.time()), Style.RESET_ALL)
         Command.getUpdateRequestStatus(status)
                             
-    # global system status
     def updateSystemStatus(self, status):
         Command.getUpdateSystemStatus(status)
         
@@ -49,8 +44,6 @@ class ParameterView(View, ITM_PRO__POA.ParameterView):
         pass
            
     def notifyParameter(self, key, value):
-        #print("\nView key is: " + str(key) + "\n")
-        #print('Parameter values: ' + str(value))
         TMParameter.getParameterNotification(key, value)
 
 class PacketView(View, ITMP_PRO__POA.TMpacketMngrView):

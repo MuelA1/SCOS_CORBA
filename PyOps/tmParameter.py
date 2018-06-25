@@ -38,11 +38,11 @@ import os
 import sys
 from subprocess import Popen
 from tabulate import tabulate
-from terminaltables import AsciiTable 
 import TimeModule
 from colorama import Fore, Style
 import threading
 import time
+import logging
 
 class TMParameter():
         
@@ -51,16 +51,22 @@ class TMParameter():
     __PIPE_PATH_Param = None
     __paramTerm = None            
     __oolStateDict = {'n':Fore.GREEN + 'NOMINAL' + Style.RESET_ALL, 'v':Fore.RED + 'VIOLATION' + Style.RESET_ALL, 'u':'WARNING_UNKNOWN', 'l':'WARNING_LOW', 'h':'WARNING_HIGH', 'U':'ALARM_UNKNOWN', 'L':Fore.RED + 'ALARM_LOW' + Style.RESET_ALL, 'H':Fore.RED + 'ALARM_HIGH' + Style.RESET_ALL, 'S':'SCC'}
+    __oolLogStateDict = {'n':'NOMINAL', 'v':'VIOLATION', 'u':'WARNING_UNKNOWN', 'l':'WARNING_LOW', 'h':'WARNING_HIGH', 'U':'ALARM_UNKNOWN', 'L':'ALARM_LOW', 'H':'ALARM_HIGH', 'S':'SCC'}
     __valueTypeDict = {'raw':IMIB.PARAM_RAW_VALUE, 'eng':IMIB.PARAM_ENG_VALUE, 'syn':IMIB.PARAM_SYN_VALUE, 'src':IMIB.PARAM_SOURCE_VALUE, 'def':IMIB.PARAM_DEFAULT_VALUE, 'ool':IMIB.PARAM_OOL, 'scc':IMIB.PARAM_SCC}
 
     __rows = {}
     __paramLock = threading.Lock()
     __globalParamList = []
     __tableHeaders = [Style.BRIGHT + 'Name', 'Description', 'Sample time', 'OOL state', 'Raw value', 'Eng value (Unit)', 'Vldity' + Style.RESET_ALL]
+    __tableLogHeaders = ['Sample time', 'OOL state', 'Raw value', 'Eng value (Unit)', 'Vldity']
+    __paramCount = 0       
+    __verbosityLevel = 2
     
     def __init__(self, name, description, notifyEveryUpdate=True, notifySelectedValChange=False, notifyOnlyOnce=False):
         
         self.__globalParamList.append(self)
+        type(self).__paramCount += 1
+        self.__instCount = self.__paramCount
         self.__paramName = name
         self.__paramDescription = description
         self.__paramMIBDef = None
@@ -76,11 +82,42 @@ class TMParameter():
         self.__notifyOnlyOnce = notifyOnlyOnce
         
         self.__paramList = []
+        self.__paramTableRows = []
+        
         self.__callbackThread = None
         self.__globalCallbackCounter = 0
         self.__localCallbackCounter = 0    
+                     
+    def __str__(self):
         
-        self.__TESTThread = None
+        if self.__instCount > 999:
+            disp = 80
+        elif self.__instCount > 99:
+            disp = 81
+        elif self.__instCount > 9:
+            disp = 82
+        else:
+            disp = 83
+            
+        string = '\n' + '*' * 95
+        string += f'\nParameter {self.__instCount} {self.__paramName:=^{disp}}\n' 
+        string += '*' * 95 + '\n\n' 
+                  
+        string += 'Description ' + '-' * 83 + '\n\n'
+        string += f'{self.__paramDescription}\n\n'
+        
+        string += 'Received values ' + '-' * 79 + '\n\n'
+        
+        if self.__paramTableRows != []:
+            string += tabulate(self.__paramTableRows, headers=self.__tableLogHeaders) + '\n\n'
+            string += '-' * 95 + '\n'
+            string += f'Parameter {self.__instCount} ({self.__paramName}) received {len(self.__paramList)} callback(s)\n'
+            string += '-' * 95 
+        else:
+            string += f'Parameter {self.__instCount} ({self.__paramName}) received no callback\n\n'        
+            string += '-' * 95
+                
+        return string
         
     def setParameterDef(self, paramDef):
         self.__paramMIBDef = paramDef
@@ -95,46 +132,18 @@ class TMParameter():
         # arg3: notify if selected value (raw, default,...) changes (IMIB.PARAM_OOL interesting), IMIB.PARAM_RAW_VALUE (IMIB.ParamValueType) 
         # arg4: notify only once            
         self.__viewKey = self.__paramIF.registerParam(self.__paramView, self.__notifyEveryUpdate, self.__notifySelectedValChange, self.__notifyOnlyOnce)
+        print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') is registered...')        
+        logging.debug(f'Parameter {self.__instCount} ({self.__paramName}) is registered...')
         
         # Test
-        #paramInit = self.__paramIF.registerParamInit(self.__paramView, self.__notifyEveryUpdate, self.__notifySelectedValChange, self.__notifyOnlyOnce)
-           
+        # paramInit = self.__paramIF.registerParamInit(self.__paramView, self.__notifyEveryUpdate, self.__notifySelectedValChange, self.__notifyOnlyOnce)
+        
         # start callback thread          
         self.__callbackThread = threading.Thread(target=self.printParameterValue)
         self.__callbackThread.start()
             
     def getViewKey(self):
         return self.__viewKey
-
-    def getLastValidValue(self, raw=False):
-                
-        print(f'Checking last valid parameter value ({self.__paramName})...', end='')
-        reverseParamList = self.__paramList[::-1]
-               
-        if reverseParamList != []:                           
-
-            if raw == False:            
-                for param in reverseParamList:
-                    if param.m_engValue.m_validity == 0:                       
-                        print(Fore.GREEN + f'got value << {vars(param.m_engValue.m_value).get("_v")} >>' + Style.RESET_ALL)                                                     
-                        return vars(param.m_engValue.m_value).get('_v')                        
-                    elif param == reverseParamList[-1]:
-                        print(Fore.RED + 'no valid eng. value received' + Style.RESET_ALL)
-                        self.__flush()
-                        return 'NOT_VALID'
-            elif raw == True:
-                for param in reverseParamList:   
-                    if param.m_rawValue.m_validity == 0:                                       
-                        print(Fore.GREEN + f'got value << {vars(param.m_rawValue.m_value).get("_v")} >>' + Style.RESET_ALL)                                                          
-                        return vars(param.m_rawValue.m_value).get('_v')                                               
-                    elif param == reverseParamList[-1]:
-                        print(Fore.RED + 'no valid raw value received' + Style.RESET_ALL)
-                        self.__flush()
-                        return 'NOT_VALID'
-                    
-        else:
-            print(Fore.RED + 'no parameter received' + Style.RESET_ALL)
-            return None
                                
     def printParameterValue(self):
 
@@ -143,34 +152,32 @@ class TMParameter():
             while getattr(self.__callbackThread, 'do_run', True):                              
                 while self.__globalCallbackCounter < len(self.__notifyParameterListStatic): 
                     if self.__notifyParameterListStatic[self.__globalCallbackCounter][0] == self.__viewKey:                        
-                        self.__paramList.append(self.__notifyParameterListStatic[self.__globalCallbackCounter][1])
+                        self.__paramList.append(self.__notifyParameterListStatic[self.__globalCallbackCounter][1])                       
+                        logging.debug(f'Parameter {self.__instCount} ({self.__paramName}) received callback...')
                         
-                        self.__paramLock.acquire()
-                        self.__rows[self.__paramName] = [Style.BRIGHT + self.__paramName + Style.RESET_ALL,
-                                                         self.__paramDescription,
-                                                         TimeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
-                                                         self.__oolStateDict.get(self.__paramList[self.__localCallbackCounter].m_oolState),
-                                                         f'{vars(self.__paramList[self.__localCallbackCounter].m_rawValue.m_value).get("_v")}',
-                                                         Style.BRIGHT + f'{vars(self.__paramList[self.__localCallbackCounter].m_engValue.m_value).get("_v")}' + Style.RESET_ALL + f' ({self.__paramMIBDef.m_engValueUnit})',
-                                                         self.__paramIF.allValuesValid()]     
+                        self.__paramTableRows.append([TimeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
+                                                      self.__oolLogStateDict.get(self.__paramList[self.__localCallbackCounter].m_oolState),
+                                                      f'{vars(self.__paramList[self.__localCallbackCounter].m_rawValue.m_value).get("_v")}',
+                                                      f'{vars(self.__paramList[self.__localCallbackCounter].m_engValue.m_value).get("_v")} ({self.__paramMIBDef.m_engValueUnit})',
+                                                      self.__paramIF.allValuesValid()])
                         
-                        completeRows = []
-                        for row in self.__rows.values():
-                            completeRows.append(row) 
-                            
-                        with open(self.__PIPE_PATH_Param, 'w') as paramTerminal:                   
-#                            paramTerminal.write(self.__paramTerm.move(3, 0) + self.__callbackTable.get_string() + '\n')                        
-                            paramTerminal.write(self.__paramTerm.move(3, 0) + tabulate(completeRows, 
-                                                                                       headers=self.__tableHeaders) 
-                                                                                       + '\n') #floatfmt='.8f', tablefmt='fancy_grid'
-
-                            # Terminaltables
-#                            completeRows.insert(0, self.__tableHeaders)
-#                            table = AsciiTable(completeRows)
-#                            table.outer_border = False
-#                            paramTerminal.write(self.__paramTerm.move(0, 3) + '\n' + table.table + '\n')  
-    
-                        self.__paramLock.release()
+                        if self.__verbosityLevel == 2:                            
+                            self.__paramLock.acquire()                                                        
+                            self.__rows[self.__paramName] = [Style.BRIGHT + self.__paramName + Style.RESET_ALL,
+                                                             self.__paramDescription,
+                                                             TimeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
+                                                             self.__oolStateDict.get(self.__paramList[self.__localCallbackCounter].m_oolState),
+                                                             f'{vars(self.__paramList[self.__localCallbackCounter].m_rawValue.m_value).get("_v")}',
+                                                             Style.BRIGHT + f'{vars(self.__paramList[self.__localCallbackCounter].m_engValue.m_value).get("_v")}' + Style.RESET_ALL + f' ({self.__paramMIBDef.m_engValueUnit})',
+                                                             self.__paramIF.allValuesValid()]                                 
+                            completeRows = []
+                            for row in self.__rows.values():
+                                completeRows.append(row) 
+                                
+                            with open(self.__PIPE_PATH_Param, 'w') as paramTerminal:                                         
+                                # move(y, x)
+                                paramTerminal.write(self.__paramTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders) + '\n') #floatfmt='.8f'        
+                            self.__paramLock.release()
                         
                         self.__localCallbackCounter += 1    
                     self.__globalCallbackCounter += 1
@@ -181,22 +188,87 @@ class TMParameter():
 
         except Exception as exception:
             self.__callbackThread.do_run = False
-            with open(self.__PIPE_PATH_Param, 'w') as paramTerminal:                   
-                with self.__paramTerm.location(0, self.__paramTerm.height - 1):
-                    paramTerminal.write(self.__paramTerm.bold_red(f'\nParameter {self.__paramName} - Exception during value reception: ') + f'{exception}')
+            print(Fore.RED + Style.BRIGHT + f'\nParameter {self.__paramName} - Exception during value reception: ' + Style.RESET_ALL + f'{exception}')
+            logging.exception(f'Parameter {self.__paramName} - Exception during value reception: {exception}', exc_info=False)
+            
+    def getLastValidValue(self, raw=False):
+               
+        print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') is checking last valid value...',
+              end='' if self.__verbosityLevel == 2 else '\n')
+        logging.info(f'Parameter {self.__instCount} ({self.__paramName}) is checking last valid value...')
+        self.__flush()
+                
+        reverseParamList = self.__paramList[::-1]
+               
+        if reverseParamList != []:                           
+
+            if raw == False:            
+                for param in reverseParamList:
+                    if param.m_engValue.m_validity == 0:
+                        if self.__verbosityLevel == 2:
+                            print('got value <<' + Fore.GREEN + f'{vars(param.m_engValue.m_value).get("_v")}' + Style.RESET_ALL + '>>')                                                                             
+                        elif self.__verbosityLevel == 1:
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received value <<' + Fore.GREEN + f'{vars(param.m_engValue.m_value).get("_v")}' + Style.RESET_ALL + f'>> @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                                                                                                           
+                        logging.info(f'Parameter {self.__instCount} ({self.__paramName}) received eng. value ({vars(param.m_engValue.m_value).get("_v")})...')
+                        logging.info('\n' + str(self) + '\n')
+                        self.__flush()  
+                        return vars(param.m_engValue.m_value).get('_v')                        
+                    elif param == reverseParamList[-1]:
+                        if self.__verbosityLevel == 2:
+                            print(Fore.RED + 'no valid eng. value received' + Style.RESET_ALL)              
+                        elif self.__verbosityLevel == 1:
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received ' + Fore.RED + 'no valid eng. value' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                             
+                        logging.warning(f'Parameter {self.__instCount} ({self.__paramName}) received no valid eng. value...')
+                        logging.warning('\n' + str(self) + '\n')
+                        self.__flush()
+                        return 'NOT_VALID'
+            elif raw == True:
+                for param in reverseParamList:   
+                    if param.m_rawValue.m_validity == 0:                                                                                                                                           
+                        if self.__verbosityLevel == 2:
+                            print('got value <<' + Fore.GREEN + f'{vars(param.m_rawValue.m_value).get("_v")}' + Style.RESET_ALL + '>>')                                                                                 
+                        elif self.__verbosityLevel == 1:
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received value <<' + Fore.GREEN + f'{vars(param.m_rawValue.m_value).get("_v")}' + Style.RESET_ALL + f'>> @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                                                                                                            
+                        logging.info(f'Parameter {self.__instCount} ({self.__paramName}) received raw value ({vars(param.m_engValue.m_value).get("_v")})...')
+                        logging.info('\n' + str(self) + '\n')
+                        self.__flush() 
+                        return vars(param.m_rawValue.m_value).get('_v')                         
+                    elif param == reverseParamList[-1]:
+                        if self.__verbosityLevel == 2:
+                            print(Fore.RED + 'no valid raw value received' + Style.RESET_ALL)
+                        elif self.__verbosityLevel == 1:
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received ' + Fore.RED + 'no valid raw value' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                            
+                        logging.warning(f'Parameter {self.__instCount} ({self.__paramName}) received no valid raw value...')
+                        logging.warning('\n' + str(self) + '\n')
+                        self.__flush()
+                        return 'NOT_VALID'                    
+        else:
+            if self.__verbosityLevel == 2:
+                print(Fore.RED + 'no parameter callback received' + Style.RESET_ALL)                
+            elif self.__verbosityLevel == 1:
+                print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') ' + Fore.RED + 'received no callback' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                           
+            logging.error(f'Parameter {self.__instCount} ({self.__paramName}) received no callback...')           
+            self.__flush()
+            return None
        
     def unregisterParamView(self):    
     
         if self.__callbackThread.isAlive():
             self.__callbackThread.do_run = False
         self.__paramIF.unregisterView(self.__viewKey)                                    
-        print(f'Unregistered parameter {self.__paramName}...')   
-                        
+        print(f'Unregistered parameter {self.__instCount} ({self.__paramName})...')   
+        logging.debug(f'Unregistered parameter {self.__instCount} ({self.__paramName})...')
+        self.__flush()        
+                
     def __flush(self, sleep=0.02):
         
         sys.stdout.flush()
         time.sleep(sleep)
 
+    @classmethod
+    def getGlobalParamList(cls):
+        return cls.__globalParamList
+    
     @classmethod
     def unregisterAllTmParameters(cls):
         
@@ -211,6 +283,14 @@ class TMParameter():
     def getParameterNotification(cls, key, value):
         cls.__notifyParameterListStatic.append((key, value))        
                
+    @classmethod    
+    def setVerbosityLevel(cls, verbLevel):
+        cls.__verbosityLevel = verbLevel
+
+    @classmethod    
+    def getVerbosityLevel(cls):
+        return cls.__verbosityLevel 
+    
     @classmethod
     def createParamNotificationTerminal(cls, term, terminalType):
         

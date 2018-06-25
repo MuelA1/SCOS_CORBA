@@ -40,16 +40,16 @@ TMPacket -- describes packet filters and packet callback progression
                          m_pktParams=[])]
 """
 
-import ITMP, IBASE
+import ITMP
 import sys
 import os
 import threading
 import TimeModule
 import time
 from tabulate import tabulate
-from terminaltables import AsciiTable
 from subprocess import Popen
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
+import logging
 
 class TMPacket():
     
@@ -63,10 +63,16 @@ class TMPacket():
     __globalTimeout = 20
     __globalPacketList = []
     __tableHeaders = [Style.BRIGHT + 'Mnemonic', 'SPID', 'Description', 'APID', 'Generation Time', 'Reception Time' + Style.RESET_ALL]
+    __tableLogHeaders = ['Generation Time', 'Reception Time']
+    
+    __packetCount = 0 
+    __verbosityLevel = 2
     
     def __init__(self, filingKey, apIds=None, header=False, body=False, param=True):
         
         self.__globalPacketList.append(self)
+        type(self).__packetCount += 1
+        self.__instCount = self.__packetCount
         self.__streamIds = None
         self.__apIds = apIds if apIds is not None else []  
         self.__filingKey = []
@@ -82,6 +88,7 @@ class TMPacket():
         self.__tmPacketFilter = None
         self.__tmTransmissionFilter = None
          
+        self.__packetTableRows = []
         self.__packetList = []
         self.__packetListLen = 0
         self.__packetThread = None
@@ -89,6 +96,40 @@ class TMPacket():
         self.__localCallbackCounter = 0  
         
         self.__packetStatus = None
+
+    def __str__(self):
+        
+        if self.__instCount > 999:
+            disp = 83
+        elif self.__instCount > 99:
+            disp = 84
+        elif self.__instCount > 9:
+            disp = 85
+        else:
+            disp = 86
+            
+        string = '\n' + '*' * 95
+        string += f'\nPacket {self.__instCount} {self.__filingKey[0]:=^{disp}}\n' 
+        string += '*' * 95 + '\n\n' 
+                
+        if self.__packetTableRows != []:
+            
+            string += 'Mnemonic ' + '-' * 86 + '\n\n'
+            string += f'{self.__packetList[0].m_pktAttributes.m_mnemo}\n\n'
+            string += 'Description ' + '-' * 83 + '\n\n'
+            string += f'{self.__packetList[0].m_pktAttributes.m_packetDescription}\n\n'   
+            string += 'APID ' + '-' * 90 + '\n\n'
+            string += f'{self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_pusApId}\n\n'
+            string += 'Callback time ' + '-' * 81 + '\n\n'
+            string += tabulate(self.__packetTableRows, headers=self.__tableLogHeaders) + '\n\n'
+            string += '-' * 95 + '\n'
+            string += f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) received {len(self.__packetList)} callback(s)\n'
+            string += '-' * 95 
+        else:
+            string += f'Packet {self.__filingKey[0]} received no callback\n\n'            
+            string += '-' * 95                
+        
+        return string
                 
     def setStreamIds(self, timeMngr):
         self.__streamIds = timeMngr.getDataStreams()
@@ -99,7 +140,9 @@ class TMPacket():
         self.__tmTransmissionFilter = ITMP.TransmissionFilter(self.__header, self.__body, self.__param)
         
         self.__viewKey = self.__tmPacketMngr.registerTMpackets(self.__packetView, self.__tmPacketFilter, self.__tmTransmissionFilter)
-
+        print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') is registered...')
+        logging.debug(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) is registered...')
+        
         # start callback thread          
         self.__packetThread = threading.Thread(target=self.printPacketValue)
         self.__packetThread.start()
@@ -110,38 +153,35 @@ class TMPacket():
             nextCall = time.time()                        
             while getattr(self.__packetThread, 'do_run', True):                              
                 while self.__globalCallbackCounter < len(self.__notifyPacketListStatic):           
-                    if self.__notifyPacketListStatic[self.__globalCallbackCounter].m_pktAttributes.m_filingKey == self.__filingKey[0]:                        
-                        self.__packetList.append(self.__notifyPacketListStatic[self.__globalCallbackCounter])
-                                                    
-                        self.__packetLock.acquire()        
-                        self.__rows[self.__filingKey[0]] = [self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_mnemo,
-                                                            Style.BRIGHT + f'{self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingKey}' + Style.RESET_ALL,
-                                                            self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_packetDescription,
-                                                            self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_pusApId,
-                                                            TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
-                                                            TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)]     
-                                                
-                        completeRows = []                    
-                        for row in self.__rows.values():
-                            completeRows.append(row)                        
-
-                        with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:
-                          
-                            #packetTerminal.write('\x1b[2J\x1b[H')
-                            #packetTerminal.write(self.__packetTerm.move(0, 3) + '\n' * 10)
-
-                            # Tabulate
-                            packetTerminal.write(self.__packetTerm.move(0, 3) + tabulate(completeRows, 
-                                                                                         headers=self.__tableHeaders,
-                                                                                         tablefmt='fancy_grid') 
-                                                                                         + '\n')
-                            # Terminaltables
-#                            completeRows.insert(0, self.__tableHeaders)
-#                            table = AsciiTable(completeRows)
-#                            table.outer_border = False
-#                            packetTerminal.write(self.__packetTerm.move(0, 3) + '\n' + table.table + '\n')
+                    if self.__notifyPacketListStatic[self.__globalCallbackCounter].m_pktAttributes.m_filingKey == self.__filingKey[0]:                                                                        
+                        self.__packetList.append(self.__notifyPacketListStatic[self.__globalCallbackCounter])                    
+                        logging.debug(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) received callback...')
                         
-                        self.__packetLock.release()
+                        self.__packetTableRows.append([TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
+                                                       TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)])
+                        
+                        if self.__verbosityLevel == 2:                            
+                            self.__packetLock.acquire()        
+                            self.__rows[self.__filingKey[0]] = [self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_mnemo,
+                                                                Style.BRIGHT + f'{self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingKey}' + Style.RESET_ALL,
+                                                                self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_packetDescription,
+                                                                self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_pusApId,
+                                                                TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
+                                                                TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)]     
+                                                    
+                            completeRows = []                    
+                            for row in self.__rows.values():
+                                completeRows.append(row)                        
+    
+                            with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:
+                              
+                                #packetTerminal.write('\x1b[2J\x1b[H')
+                                #packetTerminal.write(self.__packetTerm.move(3, 0) + '\n' * 10)
+                                # move(y, x)
+                                # self.__packetTerm.clear, clear_eol, clear_bol, clear_eos  
+                                packetTerminal.write(self.__packetTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders) + '\n')                                                                                         
+                                                                                                                     
+                            self.__packetLock.release()
                     
                         self.__localCallbackCounter += 1    
                     self.__globalCallbackCounter += 1
@@ -152,10 +192,9 @@ class TMPacket():
 
         except Exception as exception:
             self.__packetThread.do_run = False
-            with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:                   
-                with self.__packetTerm.location(0, self.__packetTerm.height - 1):
-                    packetTerminal.write(self.__packetTerm.bold_red(f'\nPacket {self.__filingKey[0]} - Exception during packet reception: ') + f'{exception}')
-    
+            print(Fore.RED + Style.BRIGHT + f'\nPacket {self.__filingKey[0]} - Exception during packet reception: ' + Style.RESET_ALL + f'{exception}')
+            logging.exception(f'Packet {self.__filingKey[0]} - Exception during packet reception: {exception}', exc_info=False)
+            
     def verifyPacketReception(self, timeout=None):
         
         if timeout is None:
@@ -165,20 +204,30 @@ class TMPacket():
         
         currTime = time.time()
         timeoutTime = currTime +  pktTimeout
-        print(f'Waiting for packet (SPID {self.__filingKey[0]})...', end='')
-                
+        
+        print('Waiting ' + Style.BRIGHT + f'{pktTimeout} sec ' + Style.RESET_ALL + f'for packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ')...',
+              end='' if self.__verbosityLevel == 2 else '\n')
+        logging.info(f'Waiting {pktTimeout} sec for packet {self.__instCount} (SPID {self.__filingKey[0]})...')
+        self.__flush()
+        
         while self.__packetListLen == len(self.__packetList):       
             if timeoutTime - time.time() < 0:          
-                self.__packetStatus = 'TIMEOUT'
-#                with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:                   
-#                    with self.__packetTerm.location(0, self.__packetTerm.height - 1):
-#                        packetTerminal.write(self.__packetTerm.bold(f'\nPacket (SPID {self.__filingKey[0]})') + ' - ' + self.__packetTerm.yellow('TIMEOUT') + f' ({pktTimeout} sec)')             
-                print(Fore.YELLOW + self.__packetStatus + Style.RESET_ALL)
+                self.__packetStatus = 'TIMEOUT'           
+                if self.__verbosityLevel == 2: 
+                    print('<<' + Fore.YELLOW + self.__packetStatus + Style.RESET_ALL + '>>')                    
+                elif self.__verbosityLevel == 1:   
+                    print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.YELLOW + 'timed out' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')               
+                logging.error(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) timed out...')
                 self.__flush()
                 return 'TIMEOUT'      
         self.__packetStatus = 'RECEIVED'
         self.__packetListLen = len(self.__packetList)
-        print(Fore.GREEN + self.__packetStatus + Style.RESET_ALL)
+        if self.__verbosityLevel == 2:
+            print('<<' + Fore.GREEN + self.__packetStatus + Style.RESET_ALL + '>>')
+        elif self.__verbosityLevel == 1:   
+            print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.GREEN + 'received' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')            
+        logging.info(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) received...')
+        logging.info('\n' + str(self) + '\n')
         self.__flush()
         return 'RECEIVED'
             
@@ -192,13 +241,19 @@ class TMPacket():
             self.__packetThread.do_run = False
         self.__tmPacketMngr.unregisterTMpackets(self.__viewKey)
         self.__tmPacketMngr.unregisterView(self.__viewKey)                                         
-        print(f'Unregistered packet {self.__filingKey[0]}...')
-                        
+        print(f'Unregistered packet {self.__instCount} (SPID {self.__filingKey[0]})...')
+        logging.debug(f'Unregistered packet {self.__instCount} (SPID {self.__filingKey[0]})...')
+        self.__flush()
+                
     def __flush(self, sleep=0.02):
         
         sys.stdout.flush()
         time.sleep(sleep)
 
+    @classmethod
+    def getGlobalPacketList(cls):
+        return cls.__globalPacketList
+    
     @classmethod
     def unregisterAllTmPackets(cls):
         
@@ -223,11 +278,16 @@ class TMPacket():
 
     @classmethod        
     def getPacketNotification(cls, packet):
-        cls.__notifyPacketListStatic.append(packet)      
+        cls.__notifyPacketListStatic.append(packet[0])      
+       
+    @classmethod    
+    def setVerbosityLevel(cls, verbLevel):
+        cls.__verbosityLevel = verbLevel
 
-        with open(cls.__PIPE_PATH_Packet, 'w') as packetTerminal:
-            packetTerminal.write(str(packet) + '\n\n') 
-        
+    @classmethod    
+    def getVerbosityLevel(cls):
+        return cls.__verbosityLevel 
+    
     @classmethod
     def createPacketNotificationTerminal(cls, term, terminalType):
         
