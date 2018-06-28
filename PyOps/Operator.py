@@ -439,4 +439,28 @@ class Operator():
          
         Command.deregister(**error)
         
+    def exitScr(self, exitFlag):    
+
+        if exitFlag == 1:
+            print(Style.BRIGHT + '=' * 95 + Style.RESET_ALL + '\n' + Fore.RED + 'An error occurred, preparing to exit PyOps' + Style.RESET_ALL + '...')
+            logging.critical('An error occurred, preparing to exit PyOps...' + '\n' + '=' * 100)         
+        elif exitFlag == 0:
+            print('Successfully finished script, preparing to exit PyOps...')
+            logging.critical('Successfully finished script, preparing to exit PyOps...')
+        elif exitFlag not in [0, 1]:
+            print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Please enter 0 (success) or 1 (failure)')           
+            sys.exit(1) 
+            
+        if TMParameter.getGlobalParamList != []:
+            self.unregisterAllTmParameters()
+        if TMPacket.getGlobalPacketList != []:
+            self.unregisterAllTmPackets()
         
+        if exitFlag == 1:
+            if self.__cmdAgent.getCmdInjMngr() is not None:
+                self.deregisterCommandMngr(error=True)                              
+        elif exitFlag == 0:
+            if self.__cmdAgent.getCmdInjMngr() is not None:
+                self.deregisterCommandMngr()                
+                sys.exit(exitFlag)               
+                                     

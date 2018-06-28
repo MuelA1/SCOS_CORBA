@@ -791,8 +791,8 @@ class Command():
                             logging.info('\n' + str(self) + '\n')
                             self.printCallback()
                                                      
-                # call method every 0.2 sec    
-                nextCall += 0.2
+                # call method every 0.3 sec    
+                nextCall += 0.3
                 time.sleep(nextCall - time.time())
 
         except Exception as exception:
@@ -921,16 +921,19 @@ class Command():
             print('Unregistered from external command server...')
             logging.info('Unregistered from external command server...\n' + '=' * 100)
                        
-            print(Style.BRIGHT + '-' * 95 + f'\nSuccessfully processed {cls.__cmdCount} commands...' + Style.RESET_ALL + '\n' +
+            print(Style.BRIGHT + '=' * 95 + f'\nSuccessfully processed {cls.__cmdCount} commands...' + Style.RESET_ALL + '\n' +
                   Fore.GREEN + f'{cls.__passedCounter} commands passed' + Style.RESET_ALL + '...' + '\n' +
                   Fore.RED + f'{cls.__failedCounter} commands failed' + Style.RESET_ALL + '...' + '\n' +
                   Fore.YELLOW + f'{cls.__timeoutCounter} commands timed out' + Style.RESET_ALL + '...\n' + 
-                  Style.BRIGHT + '-' * 95 + Style.RESET_ALL)
+                  Style.BRIGHT + '=' * 95 + Style.RESET_ALL)
             
             logging.info(f'Successfully processed {cls.__cmdCount} commands...\n{cls.__passedCounter} commands passed...\n{cls.__failedCounter} commands failed...\n{cls.__timeoutCounter} commands timed out...' + '\n' + '=' * 100)                  
         
-        if error == True:
-            
+        if error == True:            
+            for cmd in cls.__cmdList:  
+                if cmd.__callbackThread.isAlive():
+                    cmd.__callbackThread.do_run = False
+                    
             cls.__cmdInjMngr.deregister()
             print('Unregistered from external command server...')
             logging.debug('Unregistered from external command server...')           

@@ -119,7 +119,7 @@ class TMPacket():
             string += 'Description ' + '-' * 83 + '\n\n'
             string += f'{self.__packetList[0].m_pktAttributes.m_packetDescription}\n\n'   
             string += 'APID ' + '-' * 90 + '\n\n'
-            string += f'{self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_pusApId}\n\n'
+            string += f'{self.__packetList[self.__localCallbackCounter - 1].m_pktAttributes.m_pusApId}\n\n'
             string += 'Callback time ' + '-' * 81 + '\n\n'
             string += tabulate(self.__packetTableRows, headers=self.__tableLogHeaders) + '\n\n'
             string += '-' * 95 + '\n'
@@ -173,13 +173,9 @@ class TMPacket():
                             for row in self.__rows.values():
                                 completeRows.append(row)                        
     
-                            with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:
-                              
-                                #packetTerminal.write('\x1b[2J\x1b[H')
-                                #packetTerminal.write(self.__packetTerm.move(3, 0) + '\n' * 10)
-                                # move(y, x)
-                                # self.__packetTerm.clear, clear_eol, clear_bol, clear_eos  
-                                packetTerminal.write(self.__packetTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders) + '\n')                                                                                         
+                            with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:                                                                                                                                      
+                                packetTerminal.write(self.__packetTerm.clear() + '\n' +  self.__packetTerm.bold('Waiting for TM packets...') +
+                                                     self.__packetTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders))                                                                                         
                                                                                                                      
                             self.__packetLock.release()
                     

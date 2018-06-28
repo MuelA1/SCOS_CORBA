@@ -174,9 +174,9 @@ class TMParameter():
                             for row in self.__rows.values():
                                 completeRows.append(row) 
                                 
-                            with open(self.__PIPE_PATH_Param, 'w') as paramTerminal:                                         
-                                # move(y, x)
-                                paramTerminal.write(self.__paramTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders) + '\n') #floatfmt='.8f'        
+                            with open(self.__PIPE_PATH_Param, 'w') as paramTerminal:                                                                   
+                                paramTerminal.write(self.__paramTerm.clear() + '\n' +  self.__paramTerm.bold('Waiting for TM parameters...') +
+                                                    self.__paramTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders)) #floatfmt='.8f'        
                             self.__paramLock.release()
                         
                         self.__localCallbackCounter += 1    
