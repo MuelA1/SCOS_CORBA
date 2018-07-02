@@ -5,7 +5,7 @@
 MIBAgent -- describes MIB access
 """
 
-from BaseAgent import BaseAgent
+from baseAgent import BaseAgent
 import IMIB_PRO
 
 class MIBAgent(BaseAgent):

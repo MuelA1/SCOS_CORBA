@@ -9,10 +9,9 @@ import sys
 sys.path.append('AAIDL')
 
 # This is the Operator Module
-from Operator import Operator
+from pyops import Operator
 
-try:
-    op = Operator()
+with Operator() as op:
     
     # Set up operator
     #op.setVerbosity(2)
@@ -41,8 +40,4 @@ try:
         op.exitScr(1)
     else:
         print('Ping test success')   
-        
-except KeyboardInterrupt:      
-   op.exitScr(1)  
-   
-op.exitScr(0)   
+            

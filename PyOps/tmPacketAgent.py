@@ -5,7 +5,7 @@
 TMPacketAgent -- describes access to telemetry packet services
 """
 
-from BaseAgent import BaseAgent
+from baseAgent import BaseAgent
 import ITMP_PRO
 
 class TMPacketAgent(BaseAgent):

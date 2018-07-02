@@ -9,14 +9,14 @@ import sys
 import time
 import logging
 from time import sleep
-from MIBAgent import MIBAgent
-from CommandAgent import CommandAgent
+from mibAgent import MIBAgent
+from commandAgent import CommandAgent
 from tmParamAgent import TMParamAgent
 from tmPacketAgent import TMPacketAgent
-from Command import Command
+from command import Command
 from tmParameter import TMParameter
 from tmPacket import TMPacket
-from ViewInterfaces import CommandInjectMngrView, ParameterView, PacketView
+from viewInterfaces import CommandInjectMngrView, ParameterView, PacketView
 from colorama import Fore, Back, Style
 from blessings import Terminal
 
@@ -30,7 +30,17 @@ class Operator():
         self.__cmdAgent = CommandAgent()
         self.__tmParamAgent = TMParamAgent() 
         self.__tmPacketAgent = TMPacketAgent()
+
+    def __enter__(self):
+        return self
                 
+    def __exit__(self, type, value, traceback):
+                             
+        if type == KeyboardInterrupt:
+            self.exitScr(1, keybInterrupt=True)
+        elif Command.getExecutionError() == False:
+            self.exitScr(0)
+                    
     def configLogging(self, file, lvl):
         
         if lvl == 1:
@@ -128,7 +138,7 @@ class Operator():
 
         # change window size, works on gnome terminal
         print('\x1b[8;{rows};{cols}t'.format(rows=30, cols=120))          
-        print('\n' + Style.BRIGHT + 'Starting PyOps...\n' + '=' * 95 + Style.RESET_ALL + '\n')         
+        print('\n' + Style.BRIGHT + '=' * 95 + '\nStarting PyOps...\n' + '=' * 95 + Style.RESET_ALL + '\n')         
               
         if command == True and self.__verbLevel == 2:                                 
             Command.createCallbackTerminal(Terminal(), terminalType=terminal)
@@ -439,16 +449,19 @@ class Operator():
          
         Command.deregister(**error)
         
-    def exitScr(self, exitFlag):    
+    def exitScr(self, exitFlag, keybInterrupt=False):    
 
-        if exitFlag == 1:
-            print(Style.BRIGHT + '=' * 95 + Style.RESET_ALL + '\n' + Fore.RED + 'An error occurred, preparing to exit PyOps' + Style.RESET_ALL + '...')
-            logging.critical('An error occurred, preparing to exit PyOps...' + '\n' + '=' * 100)         
+        if exitFlag == 1 and keybInterrupt == False:
+            print('\n' + Style.BRIGHT + '=' * 95 + Style.RESET_ALL + '\n' + Fore.RED + 'Test procedure error, preparing to exit PyOps' + Style.RESET_ALL + '...')
+            logging.critical('Test procedure error, preparing to exit PyOps...' + '\n' + '=' * 100)         
+        elif exitFlag == 1 and keybInterrupt == True:
+            print('\n' + Style.BRIGHT + '=' * 95 + Style.RESET_ALL + '\n' + Fore.RED + 'Test canceled by user, preparing to exit PyOps' + Style.RESET_ALL + '...')
+            logging.critical('Test canceled by user, preparing to exit PyOps...' + '\n' + '=' * 100) 
         elif exitFlag == 0:
-            print('Successfully finished script, preparing to exit PyOps...')
-            logging.critical('Successfully finished script, preparing to exit PyOps...')
+            print('\n' + Style.BRIGHT + '=' * 95 + Style.RESET_ALL + '\nSuccessfully finished script, preparing to exit PyOps...')
+            logging.critical('Successfully finished script, preparing to exit PyOps...' + '\n' + '=' * 100)
         elif exitFlag not in [0, 1]:
-            print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Please enter 0 (success) or 1 (failure)')           
+            print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Method exitScr - please enter 0 (success) or 1 (failure)')           
             sys.exit(1) 
             
         if TMParameter.getGlobalParamList != []:

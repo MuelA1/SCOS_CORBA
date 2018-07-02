@@ -38,7 +38,7 @@ import os
 import sys
 from subprocess import Popen
 from tabulate import tabulate
-import TimeModule
+import timeModule
 from colorama import Fore, Style
 import threading
 import time
@@ -155,7 +155,7 @@ class TMParameter():
                         self.__paramList.append(self.__notifyParameterListStatic[self.__globalCallbackCounter][1])                       
                         logging.debug(f'Parameter {self.__instCount} ({self.__paramName}) received callback...')
                         
-                        self.__paramTableRows.append([TimeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
+                        self.__paramTableRows.append([timeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
                                                       self.__oolLogStateDict.get(self.__paramList[self.__localCallbackCounter].m_oolState),
                                                       f'{vars(self.__paramList[self.__localCallbackCounter].m_rawValue.m_value).get("_v")}',
                                                       f'{vars(self.__paramList[self.__localCallbackCounter].m_engValue.m_value).get("_v")} ({self.__paramMIBDef.m_engValueUnit})',
@@ -165,7 +165,7 @@ class TMParameter():
                             self.__paramLock.acquire()                                                        
                             self.__rows[self.__paramName] = [Style.BRIGHT + self.__paramName + Style.RESET_ALL,
                                                              self.__paramDescription,
-                                                             TimeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
+                                                             timeModule.ibaseTime2SCOSdate(self.__paramList[self.__localCallbackCounter].m_sampleTime),
                                                              self.__oolStateDict.get(self.__paramList[self.__localCallbackCounter].m_oolState),
                                                              f'{vars(self.__paramList[self.__localCallbackCounter].m_rawValue.m_value).get("_v")}',
                                                              Style.BRIGHT + f'{vars(self.__paramList[self.__localCallbackCounter].m_engValue.m_value).get("_v")}' + Style.RESET_ALL + f' ({self.__paramMIBDef.m_engValueUnit})',
@@ -175,8 +175,8 @@ class TMParameter():
                                 completeRows.append(row) 
                                 
                             with open(self.__PIPE_PATH_Param, 'w') as paramTerminal:                                                                   
-                                paramTerminal.write(self.__paramTerm.clear() + '\n' +  self.__paramTerm.bold('Waiting for TM parameters...') +
-                                                    self.__paramTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders)) #floatfmt='.8f'        
+                                paramTerminal.write(self.__paramTerm.clear() + '\n' +  self.__paramTerm.bold('=' * 120 + '\nTM parameters\n' + '=' * 120) +
+                                                    self.__paramTerm.move(5, 0) + tabulate(completeRows, headers=self.__tableHeaders)) #floatfmt='.8f'        
                             self.__paramLock.release()
                         
                         self.__localCallbackCounter += 1    
@@ -208,7 +208,7 @@ class TMParameter():
                         if self.__verbosityLevel == 2:
                             print('got value <<' + Fore.GREEN + f'{vars(param.m_engValue.m_value).get("_v")}' + Style.RESET_ALL + '>>')                                                                             
                         elif self.__verbosityLevel == 1:
-                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received value <<' + Fore.GREEN + f'{vars(param.m_engValue.m_value).get("_v")}' + Style.RESET_ALL + f'>> @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                                                                                                           
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received value <<' + Fore.GREEN + f'{vars(param.m_engValue.m_value).get("_v")}' + Style.RESET_ALL + f'>> @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')                                                                                                           
                         logging.info(f'Parameter {self.__instCount} ({self.__paramName}) received eng. value ({vars(param.m_engValue.m_value).get("_v")})...')
                         logging.info('\n' + str(self) + '\n')
                         self.__flush()  
@@ -217,7 +217,7 @@ class TMParameter():
                         if self.__verbosityLevel == 2:
                             print(Fore.RED + 'no valid eng. value received' + Style.RESET_ALL)              
                         elif self.__verbosityLevel == 1:
-                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received ' + Fore.RED + 'no valid eng. value' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                             
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received ' + Fore.RED + 'no valid eng. value' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')                             
                         logging.warning(f'Parameter {self.__instCount} ({self.__paramName}) received no valid eng. value...')
                         logging.warning('\n' + str(self) + '\n')
                         self.__flush()
@@ -228,7 +228,7 @@ class TMParameter():
                         if self.__verbosityLevel == 2:
                             print('got value <<' + Fore.GREEN + f'{vars(param.m_rawValue.m_value).get("_v")}' + Style.RESET_ALL + '>>')                                                                                 
                         elif self.__verbosityLevel == 1:
-                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received value <<' + Fore.GREEN + f'{vars(param.m_rawValue.m_value).get("_v")}' + Style.RESET_ALL + f'>> @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                                                                                                            
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received value <<' + Fore.GREEN + f'{vars(param.m_rawValue.m_value).get("_v")}' + Style.RESET_ALL + f'>> @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')                                                                                                            
                         logging.info(f'Parameter {self.__instCount} ({self.__paramName}) received raw value ({vars(param.m_engValue.m_value).get("_v")})...')
                         logging.info('\n' + str(self) + '\n')
                         self.__flush() 
@@ -237,7 +237,7 @@ class TMParameter():
                         if self.__verbosityLevel == 2:
                             print(Fore.RED + 'no valid raw value received' + Style.RESET_ALL)
                         elif self.__verbosityLevel == 1:
-                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received ' + Fore.RED + 'no valid raw value' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                            
+                            print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') received ' + Fore.RED + 'no valid raw value' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')                            
                         logging.warning(f'Parameter {self.__instCount} ({self.__paramName}) received no valid raw value...')
                         logging.warning('\n' + str(self) + '\n')
                         self.__flush()
@@ -246,7 +246,7 @@ class TMParameter():
             if self.__verbosityLevel == 2:
                 print(Fore.RED + 'no parameter callback received' + Style.RESET_ALL)                
             elif self.__verbosityLevel == 1:
-                print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') ' + Fore.RED + 'received no callback' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')                           
+                print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') ' + Fore.RED + 'received no callback' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')                           
             logging.error(f'Parameter {self.__instCount} ({self.__paramName}) received no callback...')           
             self.__flush()
             return None
@@ -307,5 +307,5 @@ class TMParameter():
         Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Param])   
                
         with open(cls.__PIPE_PATH_Param, 'w') as paramTerminal:
-            paramTerminal.write('\n' +  cls.__paramTerm.bold('Waiting for TM parameter...') + '\n')    
+            paramTerminal.write('\n' +  cls.__paramTerm.bold('=' * 120 + '\nTM parameters\n' + '=' * 120) + '\n')    
             

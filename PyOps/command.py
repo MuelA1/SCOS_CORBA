@@ -6,7 +6,7 @@ Command -- describes command values, command injection and command status
 """
 
 import IBASE, ITC, ITC_INJ
-import TimeModule
+import timeModule
 import time, threading
 from colorama import Fore, Back, Style
 from operator import attrgetter
@@ -67,6 +67,10 @@ class Command():
     __failedCounter = 0
     __timeoutCounter = 0
     
+    __ExecutionError = False
+    
+    __call = 0
+    
     def __init__(self, name, description, absReleaseTime=IBASE.Time(0,0,False), relReleaseTime=None, absExecutionTime=IBASE.Time(0,0,False), staticPtv='D', dynamicPtv='D', cev=True, timeout=None, interlock=None):
         
         self.__cmdList.append(self)
@@ -75,16 +79,18 @@ class Command():
         
         self.__cmdDescription = description
 
+        self.__callbackThread = None
+
         if timeout is None:
             self.__timeout = self.__globalTimeout        
         else:
             self.__timeout = timeout
 
         if type(absReleaseTime) == str:
-            self.__absReleaseTime = TimeModule.scosDate2ibaseTime(absReleaseTime)
-            if TimeModule.ibaseTime2stamp(self.__absReleaseTime) < time.time():
+            self.__absReleaseTime = timeModule.scosDate2ibaseTime(absReleaseTime)
+            if timeModule.ibaseTime2stamp(self.__absReleaseTime) < time.time():
                 raise Exception('Release time <<' + absReleaseTime + '>> from the past is used')                                   
-            self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime) + self.__timeout
+            self.__timeoutTimestamp = timeModule.ibaseTime2stamp(self.__absReleaseTime) + self.__timeout
             
         else:
             self.__absReleaseTime = absReleaseTime
@@ -93,9 +99,9 @@ class Command():
         self.__relReleaseTime = relReleaseTime                    
                
         if type(absExecutionTime) == str:            
-            self.__absExecutionTime = TimeModule.scosDate2ibaseTime(absExecutionTime)
-            self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absExecutionTime) + self.__timeout
-            if TimeModule.ibaseTime2stamp(self.__absExecutionTime) < time.time():
+            self.__absExecutionTime = timeModule.scosDate2ibaseTime(absExecutionTime)
+            self.__timeoutTimestamp = timeModule.ibaseTime2stamp(self.__absExecutionTime) + self.__timeout
+            if timeModule.ibaseTime2stamp(self.__absExecutionTime) < time.time():
                 raise Exception('Execution time <<' + absExecutionTime + '>> from the past is used')        
         else:
             self.__absExecutionTime = absExecutionTime
@@ -127,7 +133,7 @@ class Command():
        
         self.__globalCallbackCounter = 0
         self.__localCallbackCounter = 0
-        self.__callbackThread = None
+        
         if self.__cmdCount > 1:
             self.__lastCommand = self.__cmdList[self.__instCount - 2]
         else:
@@ -135,9 +141,7 @@ class Command():
                                 
         self.__repeaterGroup = {}
         self.__repeaterGroupName = {}
-        #self.__repeaterCountValues = {}
-        #self.__repeaterCountIndex = 0
-        
+                      
         self.__callbackCompletedStage = None
         self.__callbackCompletedStatus = None       
         self.__callbackCompletedTime = None
@@ -158,21 +162,10 @@ class Command():
             ilockWidgets = ['Waiting for interlock status...', pb.BouncingBar(marker=pb.RotatingMarker())]
             self.__ilockBar = pb.ProgressBar(widgets=ilockWidgets, term_width=43)
         
-        print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + f') is created @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...') 
+        print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + f') is created @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...') 
         logging.debug(f'Command {self.__instCount} ({self.__cmdName}) is created...')
         self.__flush()
-        
-        #self.__call = 0
-             
-#    def __repr__(self):
-#        
-#        string = f'\nCommand status {self.__instCount} {self.__cmdName:=^89}\n\n'
-#        string += 'name: {} \ndescription: {} \nparameters: {} \nrequestID: {} \n\ninjectionTime: {} \nreleaseTime: {} \nrelReleaseTime: {} \nexecutionTime: {} \ntimeout: {} sec \ntimeoutTime: {} \n\nstaticPtv: {} \ndynamicPtv: {} \ncev: {} \n{}'.format(self.__cmdName,
-#                   self.__cmdDescription, self.__cmdParameters, self.__injRequestID, TimeModule.ibaseTime2SCOSdate(self.__injectionTime), TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime), self.__relReleaseTime, TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime), self.__timeout,
-#                   TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(self.__timeoutTimestamp)), self.__staticPtv, self.__dynamicPtv, self.__cev, self)
-#        
-#        return string
-    
+                              
     def __str__(self):
     
         if self.__instCount > 999:
@@ -210,13 +203,13 @@ class Command():
                 
         string += 'Time status ' + '-' * 83 + '\n\n'
         
-        string += f'Injection time: {TimeModule.ibaseTime2SCOSdate(self.__injectionTime)}\n'        
+        string += f'Injection time: {timeModule.ibaseTime2SCOSdate(self.__injectionTime)}\n'        
         if self.__relReleaseTime is None:
-            string += f'Release time:   {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} (Relative release time: -)\n'
+            string += f'Release time:   {timeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} (Relative release time: -)\n'
         else:
-            string += f'Release time:   {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} (Relative release time: {self.__relReleaseTime})\n'
-        string += f'Execution time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}\n' 
-        string += f'Timeout time:   {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(self.__timeoutTimestamp))} ({self.__timeout} sec)\n\n'
+            string += f'Release time:   {timeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} (Relative release time: {self.__relReleaseTime})\n'
+        string += f'Execution time: {timeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}\n' 
+        string += f'Timeout time:   {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(self.__timeoutTimestamp))} ({self.__timeout} sec)\n\n'
 
         string += 'Interlock status ' + '-' * 78 + '\n\n'
 
@@ -238,7 +231,7 @@ class Command():
             string += tabulate(self.__callbackTableRows, headers=self.__callbackTableHeaders)
             string += f'\n\nCompleted stage:  {self.__callbackCompletedStage}\n'
             string += f'Completed status: {self.__callbackCompletedStatus}\n'
-            string += f'Completed time:   {TimeModule.ibaseTime2SCOSdate(self.__callbackCompletedTime)}\n\n'            
+            string += f'Completed time:   {timeModule.ibaseTime2SCOSdate(self.__callbackCompletedTime)}\n\n'            
         else:
             string += f'Command {self.__cmdName} received no callback\n\n'
             
@@ -340,10 +333,10 @@ class Command():
         # time          
         print('\n' + self.__cmdTerm.bold('Time ') + '-' * 90 + '\n')        
         if self.__relReleaseTime == None:           
-            print(f'Release time: {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} \nRelative release time: - \nExecution time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}')
+            print(f'Release time: {timeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} \nRelative release time: - \nExecution time: {timeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}')
             
         else:
-            print(f'Release time: To be calculated \nRelative release time: {self.__relReleaseTime} \nExecution time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}')
+            print(f'Release time: To be calculated \nRelative release time: {self.__relReleaseTime} \nExecution time: {timeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}')
                 
         if self.__timeout == self.__globalTimeout:
             print(f'Timeout: {self.__timeout} sec (default)')
@@ -373,15 +366,12 @@ class Command():
              
             compStatus = None
             if self.__callbackCompletedStatus == 'PASSED':   
-                compStatus = Fore.GREEN + self.__callbackCompletedStatus + Style.RESET_ALL
-                type(self).__passedCounter += 1
+                compStatus = Fore.GREEN + self.__callbackCompletedStatus + Style.RESET_ALL                
             elif self.__callbackCompletedStatus == 'FAILED':
-                compStatus = Fore.RED + self.__callbackCompletedStatus + Style.RESET_ALL
-                type(self).__failedCounter += 1
+                compStatus = Fore.RED + self.__callbackCompletedStatus + Style.RESET_ALL                
             elif self.__callbackCompletedStatus == 'TIMEOUT': 
                 compStatus = Fore.YELLOW + self.__callbackCompletedStatus + Style.RESET_ALL
-                type(self).__timeoutCounter += 1
-                
+                                
             if self.__verbosityLevel == 2:
                 
                 if self.__instCount > 999:
@@ -396,7 +386,7 @@ class Command():
                 with open(self.__PIPE_PATH_Callb, 'w') as cbTerminal:                                          
                     cbTerminal.write('\n' + self.__cbTerm.bold('*') * 75 + '\n' + Fore.WHITE + Back.BLACK + Style.BRIGHT + f'Command status {self.__instCount} {self.__cmdName:=^{disp}}' + Style.RESET_ALL + '\n' + self.__cbTerm.bold('*') * 75 + '\n')   
                                          
-                    cbTerminal.write(f'\nDescription:    {self.__cmdDescription} \nRelease Time:   {TimeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} \nExecution Time: {TimeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}\n')
+                    cbTerminal.write(f'\nDescription:    {self.__cmdDescription} \nRelease Time:   {timeModule.ibaseTime2SCOSdate(self.__absReleaseTime)} \nExecution Time: {timeModule.ibaseTime2SCOSdate(self.__absExecutionTime)}\n')
                                 
                     # interlock
                     if self.__interlock is not None:
@@ -414,12 +404,12 @@ class Command():
                     cbTerminal.write('\n\n')
                     
                     if self.__statusDict.get(self.__commandStatusList[-1].m_stage_status) == 'UNKNOWN':
-                        cbTerminal.write(self.__cbTerm.bold + f'Command {self.__instCount}/{self.__cmdCount}: {self.__cmdName} exceeded SCOS Timeout\n' + self.__cbTerm.normal)
+                        cbTerminal.write(self.__cbTerm.bold + f'Command {self.__instCount}: {self.__cmdName} exceeded SCOS Timeout\n' + self.__cbTerm.normal)
                         
-                    cbTerminal.write(self.__cbTerm.bold + f'Command {self.__instCount}/{self.__cmdCount}: {self.__cmdName} completed with status ' + self.__cbTerm.normal + '<<' + compStatus + '>>\n')
+                    cbTerminal.write(self.__cbTerm.bold + f'Command {self.__instCount}: {self.__cmdName} completed with status ' + self.__cbTerm.normal + '<<' + compStatus + '>>\n')
                     
             elif self.__verbosityLevel == 1:  
-                print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + ') completed with status <<' + compStatus + f'>> @ {TimeModule.ibaseTime2SCOSdate(self.__callbackCompletedTime)}...', end='\n')
+                print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + ') completed with status <<' + compStatus + f'>> @ {timeModule.ibaseTime2SCOSdate(self.__callbackCompletedTime)}...', end='\n')
                 self.__flush()    
         finally:       
             self.__lock.release()
@@ -482,10 +472,9 @@ class Command():
                 # key: counter, value: parameter to be repeated
                 self.__repeaterGroup[self.__cmdMIBDef.m_params[i].m_name] = tempRepeatGroup
                                                 
-                repeater = True
-         
+                repeater = True       
             i += 1
-         
+                       
         # set default parameters, no repeater    
         if repeater == False:                       
             for param in self.__cmdMIBDef.m_params:                 
@@ -496,65 +485,52 @@ class Command():
             if counter is None:     
                 for rep in self.__repeaterGroupName.keys():                   
                     raise Exception(f'Please set counter value ({rep} - Group: ' + '%s' % ', '.join(map(str, self.__repeaterGroupName[rep])) + f') for command {self.__instCount} - {self.__cmdName}')             
+
+            # add an index variable to new dictionary for each counter to set correct counter values
+            indexCounter = {}                        
+            for c in counter:
+                indexCounter[c] = (counter[c], [0])
                                                 
-            for param in self.__cmdMIBDef.m_params:  
-                                               
-                if param.m_repeatSize is not 0 and param.m_name not in counterInRepGroup: 
-                    #logging.debug(f'Loop call with: {param.m_name}')
-                    #self.__call += 1
-                    self.__setCounterAndParameters(param, counter, 0)
+            for param in self.__cmdMIBDef.m_params:                                                 
+                if param.m_repeatSize is not 0 and param.m_name not in counterInRepGroup:                                      
+                    self.__setCounterAndParameters(param, indexCounter, 0)
                 
                 elif param.m_name not in repParams:
                     self.__setDefaultParam(param)
-                    #logging.debug(f'NO Counter {self.__call} ' + param.m_name)
-                     
+                                         
     def __setCounterAndParameters(self, param, counter, j):
-
-        self.__call += 1
+                       
+#        counter = {'DSP00002': ([2], [0]),
+#                   'DSP00004': ([5], [0]),
+#                   'DSP00006': ([2, 4, 1, 4, 5], [0])}
+#        
+#        counter values (first array)        
+#        counter[counterParam][0][index] 
+#        
+#        value index (second Array)
+#        counter[counterParam][1][0]
         
-        # ('DSP00006', 3, 3): counterParam
         for counterParam in counter:
-            if counterParam[0] == param.m_name:    
-                           
-                # set counter    
-                #logging.debug(f'Current parameter: {param.m_name}' + f' (Rec. call {self.__call})')                           
-                paramStruct = ITC.CommandParam(param.m_name, param.m_engValueIsDefault, param.m_unit, param.m_defaultRadix, IBASE.Variant('U', counterParam[1]))    
+            if counterParam == param.m_name:                     
+                value = counter[counterParam][0][counter[counterParam][1][0]]
+                # set counter                                              
+                paramStruct = ITC.CommandParam(param.m_name, param.m_engValueIsDefault, param.m_unit, param.m_defaultRadix, IBASE.Variant('U', value))    
                 self.__cmdParameters.append(paramStruct)
                 self.__completeCmdParameters.append(param)
                 self.__paramIsModified.append([False, False, False, True, True]) 
-                #logging.debug('Counter: ' + counterParam[0] + f' (Rec. call {self.__call})')
-                
-                #j = 0
-                while j < counterParam[1]:
-                    for repParam in self.__repeaterGroup[counterParam[0]]:
-                                                   
+                                
+                # increase counter value index
+                counter[counterParam][1][0] += 1
+                         
+                while j < value:
+                    for repParam in self.__repeaterGroup[counterParam]:                                                   
                         # counter in repeated group
-                        if repParam.m_repeatSize is not 0:
-                            #logging.debug(f'Recursive call with: {repParam.m_name}')                           
-                            #logging.debug(f'Counter parameter: {counterParam}')
-#                            for counterParam in counter:
-#                                if counterParam[0] == repParam.m_name and len(counterParam) > 2:
-#                                   counterParam.remove(counterParam[1])                                    
-                            self.__setCounterAndParameters(repParam, counter, 1)
-                            
+                        if repParam.m_repeatSize is not 0:                                
+                            self.__setCounterAndParameters(repParam, counter, 1)                            
                         # set number of counter parameters 
                         else:
-                            self.__setDefaultParam(repParam)
-                            #logging.debug(f'Appended parameter: ' + repParam.m_name + f' (Rec. call {self.__call})')                        
-                                                                        
+                            self.__setDefaultParam(repParam)                                                                                                                           
                     j += 1
-
-                    if j == counterParam[1]:
-                        if len(counterParam) == 2:                               
-                            if counter == []:
-                                return 1
-                            del counter[0]                               
-                            #logging.debug('Return ' + str(counter) + f' (Rec. call {self.__call})')
-                            return 1
-                        else:
-                            counterParam.remove(counterParam[1])
-                            #logging.debug('Return ' + str(counter) + f' (Rec. call {self.__call})')
-                            return 1
 
     def __setDefaultParam(self, param):
         
@@ -608,10 +584,10 @@ class Command():
                 while(str(self.__lastCommand.getReleaseTime()) == str(IBASE.Time(0,0,False))):
                     pass
 
-                self.__absReleaseTime = TimeModule.calcRelativeReleaseTime(self.__lastCommand.getReleaseTime(), self.__relReleaseTime)         
+                self.__absReleaseTime = timeModule.calcRelativeReleaseTime(self.__lastCommand.getReleaseTime(), self.__relReleaseTime)         
                 #timeout    
                 if self.__timeoutTimestamp is None:
-                    self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout                
+                    self.__timeoutTimestamp = timeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout                
             
             elif self.__lastCommand is None and type(self.__relReleaseTime) == str:
                 raise Exception('Relative release time - previous command does not exist')
@@ -672,7 +648,7 @@ class Command():
                     
                 # Release time tagged
                 else:                                  
-                    releaseStamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)
+                    releaseStamp = timeModule.ibaseTime2stamp(self.__absReleaseTime)
                      
                     if releaseStamp - time.time() < 0.5:
                         self.__bar.max_value = 200
@@ -681,7 +657,7 @@ class Command():
                         self.__flushBar()
                         
                     else:    
-                        self.__bar.max_value = int(TimeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time())                         
+                        self.__bar.max_value = int(timeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time())                         
                         logging.debug(f'Command {self.__instCount} ({self.__cmdName}) is waiting ' + str(self.__bar.max_value) + ' sec for command injection...')
                         self.__bar.start()
         
@@ -697,21 +673,21 @@ class Command():
             elif self.__verbosityLevel == 1:
                 # Release time tagged
                 if str(self.__absReleaseTime) != str(IBASE.Time(0,0,False)):
-                    tempTime = int(TimeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time())
+                    tempTime = int(timeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time())
                     print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + ') is waiting ' + self.__cmdTerm.bold(str(tempTime) + ' sec') + ' for command injection...', end='\n')    
                     logging.debug(f'Command {self.__instCount} ({self.__cmdName}) is waiting ' + str(tempTime) + ' sec for command injection...')
                     self.__flush()
-                    while TimeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time() > 0.5:
+                    while timeModule.ibaseTime2stamp(self.__absReleaseTime) - time.time() > 0.5:
                         pass           
                     
             self.__injRequestID = self.__cmdInjMngr.injectCmd(cmdRequest)
             self.__injectionTime = self.__commandServerMngr.getUTC()         
             
             if self.__verbosityLevel == 2:
-                print(self.__cmdTerm.bold('Injecting ') + f'command {self.__instCount}/{self.__cmdCount}: {self.__cmdName} - {self.__cmdDescription} @ {TimeModule.ibaseTime2SCOSdate(self.__injectionTime)}...\n')
+                print(self.__cmdTerm.bold('Injecting ') + f'command {self.__instCount}: {self.__cmdName} - {self.__cmdDescription} @ {timeModule.ibaseTime2SCOSdate(self.__injectionTime)}...\n')
                              
             elif self.__verbosityLevel == 1:
-                print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + f') is injected @ {TimeModule.ibaseTime2SCOSdate(self.__injectionTime)}...')
+                print(f'Command {self.__instCount} (' + Style.BRIGHT + f'{self.__cmdName}' + Style.RESET_ALL + f') is injected @ {timeModule.ibaseTime2SCOSdate(self.__injectionTime)}...')
                 
             logging.info(f'Command {self.__instCount} ({self.__cmdName}) is injected...')
             self.__flush()    
@@ -740,16 +716,16 @@ class Command():
                         # get release time if neccessary                
                         if self.__commandStatusList[self.__localCallbackCounter].m_stage == 's':
                             if str(self.__absReleaseTime) == str(IBASE.Time(m_sec=0, m_micro=0, m_isDelta=False)):
-                                self.__absReleaseTime = TimeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
+                                self.__absReleaseTime = timeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
                                 
                                 # set timeout
                                 if self.__timeoutTimestamp is None:
-                                    self.__timeoutTimestamp = TimeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout
+                                    self.__timeoutTimestamp = timeModule.ibaseTime2stamp(self.__absReleaseTime)  + self.__timeout
 
                         # get execution time if neccessary
                         if self.__commandStatusList[self.__localCallbackCounter].m_stage == 'S':
                             if str(self.__absExecutionTime) == str(IBASE.Time(m_sec=0, m_micro=0, m_isDelta=False)):
-                                self.__absExecutionTime = TimeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
+                                self.__absExecutionTime = timeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
                                              
                         self.__callbackTableRows.append([self.__stageDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage) + ' (' + self.__commandStatusList[self.__localCallbackCounter].m_stage + ')',
                                                          self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status),
@@ -761,14 +737,16 @@ class Command():
                                
                             self.__callbackThread.do_run = False  
                             
-                            self.__callbackCompletedTime = TimeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
+                            self.__callbackCompletedTime = timeModule.scosDate2ibaseTime(self.__commandStatusList[self.__localCallbackCounter].m_updateTime)
                             self.__callbackCompletedStage = self.__stageDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage)
                             self.__callbackCompletedStatus = self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status)
                             
                             if self.__callbackCompletedStatus == 'FAILED':
                                 logging.error(f'Command {self.__instCount} ({self.__cmdName}) {self.__callbackCompletedStatus} at stage {self.__callbackCompletedStage}...') 
-                            else:
+                                type(self).__failedCounter += 1
+                            elif self.__callbackCompletedStatus == 'PASSED':
                                 logging.info(f'Command {self.__instCount} ({self.__cmdName}) {self.__callbackCompletedStatus} at stage {self.__callbackCompletedStage}...')                                                                          
+                                type(self).__passedCounter += 1
                             logging.info('\n' + str(self) + '\n')
                             
                             self.printCallback()
@@ -783,12 +761,14 @@ class Command():
                                
                             self.__callbackThread.do_run = False
                             
-                            self.__callbackCompletedTime = TimeModule.stamp2ibaseTime(time.time())
+                            self.__callbackCompletedTime = timeModule.stamp2ibaseTime(time.time())
                             self.__callbackCompletedStage = ''
                             self.__callbackCompletedStatus = 'TIMEOUT'                        
                                                                             
                             logging.warning(f'Command {self.__instCount} ({self.__cmdName}) - {self.__callbackCompletedStatus}...') 
                             logging.info('\n' + str(self) + '\n')
+                            type(self).__timeoutCounter += 1
+                            
                             self.printCallback()
                                                      
                 # call method every 0.3 sec    
@@ -822,7 +802,7 @@ class Command():
             
     @classmethod    
     def getUpdateRequestStatus(cls, status):
-        status.m_updateTime = TimeModule.ibaseTime2SCOSdate(status.m_updateTime)
+        status.m_updateTime = timeModule.ibaseTime2SCOSdate(status.m_updateTime)
         cls.__commandStatusListStatic.append(status)
                 
         #sort by time
@@ -859,7 +839,7 @@ class Command():
           
         #os.environ.get('TERM') 
         with open(cls.__PIPE_PATH_Callb, 'w') as cbTerminal:
-            cbTerminal.write('\n' +  cls.__cbTerm.bold('Waiting for command callbacks...') + '\n')
+            cbTerminal.write('\n' +  cls.__cbTerm.bold('=' * 75 + '\nCommand callback reception\n' + '=' * 75) + '\n')
         
     @classmethod    
     def getGlobalCommandTimeout(cls):
@@ -876,6 +856,10 @@ class Command():
     @classmethod    
     def getVerbosityLevel(cls):
         return cls.__verbosityLevel 
+    
+    @classmethod
+    def getExecutionError(cls):
+        return cls.__ExecutionError
     
     @classmethod    
     def deregister(cls, error=False):
@@ -915,23 +899,25 @@ class Command():
                             break                        
                     continue                 
                                                                          
-            print(Fore.GREEN + 'All callbacks received...' + Style.RESET_ALL)  
+            print('All callbacks received...')  
             logging.debug('All callbacks received...')
             cls.__cmdInjMngr.deregister()
             print('Unregistered from external command server...')
             logging.info('Unregistered from external command server...\n' + '=' * 100)
                        
-            print(Style.BRIGHT + '=' * 95 + f'\nSuccessfully processed {cls.__cmdCount} commands...' + Style.RESET_ALL + '\n' +
-                  Fore.GREEN + f'{cls.__passedCounter} commands passed' + Style.RESET_ALL + '...' + '\n' +
-                  Fore.RED + f'{cls.__failedCounter} commands failed' + Style.RESET_ALL + '...' + '\n' +
-                  Fore.YELLOW + f'{cls.__timeoutCounter} commands timed out' + Style.RESET_ALL + '...\n' + 
+            print(Style.BRIGHT + '=' * 95 + f'\n{cls.__cmdCount} command(s) were injected' + Style.RESET_ALL + '...' + '\n' +
+                  Fore.GREEN + f'{cls.__passedCounter}/{cls.__cmdCount} command(s) passed' + Style.RESET_ALL + '...' + '\n' +
+                  Fore.RED + f'{cls.__failedCounter}/{cls.__cmdCount} command(s) failed' + Style.RESET_ALL + '...' + '\n' +
+                  Fore.YELLOW + f'{cls.__timeoutCounter}/{cls.__cmdCount} command(s) timed out' + Style.RESET_ALL + '...\n' + 
                   Style.BRIGHT + '=' * 95 + Style.RESET_ALL)
             
-            logging.info(f'Successfully processed {cls.__cmdCount} commands...\n{cls.__passedCounter} commands passed...\n{cls.__failedCounter} commands failed...\n{cls.__timeoutCounter} commands timed out...' + '\n' + '=' * 100)                  
+            logging.info(f'{cls.__cmdCount} commands were injected...\n{cls.__passedCounter}/{cls.__cmdCount} commands passed...\n{cls.__failedCounter}/{cls.__cmdCount} commands failed...\n{cls.__timeoutCounter}/{cls.__cmdCount} commands timed out...' + '\n' + '=' * 100)                  
         
-        if error == True:            
+        if error == True: 
+            
+            cls.__ExecutionError = True
             for cmd in cls.__cmdList:  
-                if cmd.__callbackThread.isAlive():
+                if cmd.__callbackThread is not None and cmd.__callbackThread.isAlive():
                     cmd.__callbackThread.do_run = False
                     
             cls.__cmdInjMngr.deregister()

@@ -9,7 +9,7 @@ PacketView            -- describes a view object where callbacks from telemetry 
 """
 
 import ITC_INJ__POA, IBASE_IF__POA, ITM_PRO__POA, ITMP_PRO__POA
-from Command import Command
+from command import Command
 from tmParameter import TMParameter
 from tmPacket import TMPacket
 

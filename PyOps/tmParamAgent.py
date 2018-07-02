@@ -5,7 +5,7 @@
 TMParamAgent -- describes access to telemetry parameter services
 """
 
-from BaseAgent import BaseAgent
+from baseAgent import BaseAgent
 import ITM_PRO
 
 class TMParamAgent(BaseAgent):

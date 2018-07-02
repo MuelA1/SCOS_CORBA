@@ -44,7 +44,7 @@ import ITMP
 import sys
 import os
 import threading
-import TimeModule
+import timeModule
 import time
 from tabulate import tabulate
 from subprocess import Popen
@@ -157,8 +157,8 @@ class TMPacket():
                         self.__packetList.append(self.__notifyPacketListStatic[self.__globalCallbackCounter])                    
                         logging.debug(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) received callback...')
                         
-                        self.__packetTableRows.append([TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
-                                                       TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)])
+                        self.__packetTableRows.append([timeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
+                                                       timeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)])
                         
                         if self.__verbosityLevel == 2:                            
                             self.__packetLock.acquire()        
@@ -166,16 +166,16 @@ class TMPacket():
                                                                 Style.BRIGHT + f'{self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingKey}' + Style.RESET_ALL,
                                                                 self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_packetDescription,
                                                                 self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_pusApId,
-                                                                TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
-                                                                TimeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)]     
+                                                                timeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_filingTime),
+                                                                timeModule.ibaseTime2SCOSdate(self.__packetList[self.__localCallbackCounter].m_pktAttributes.m_createTime)]     
                                                     
                             completeRows = []                    
                             for row in self.__rows.values():
                                 completeRows.append(row)                        
     
                             with open(self.__PIPE_PATH_Packet, 'w') as packetTerminal:                                                                                                                                      
-                                packetTerminal.write(self.__packetTerm.clear() + '\n' +  self.__packetTerm.bold('Waiting for TM packets...') +
-                                                     self.__packetTerm.move(3, 0) + tabulate(completeRows, headers=self.__tableHeaders))                                                                                         
+                                packetTerminal.write(self.__packetTerm.clear() + '\n' +  self.__packetTerm.bold('=' * 120 + '\nTM packets\n' + '=' * 120) +
+                                                     self.__packetTerm.move(5, 0) + tabulate(completeRows, headers=self.__tableHeaders))                                                                                         
                                                                                                                      
                             self.__packetLock.release()
                     
@@ -212,7 +212,7 @@ class TMPacket():
                 if self.__verbosityLevel == 2: 
                     print('<<' + Fore.YELLOW + self.__packetStatus + Style.RESET_ALL + '>>')                    
                 elif self.__verbosityLevel == 1:   
-                    print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.YELLOW + 'timed out' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')               
+                    print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.YELLOW + 'timed out' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')               
                 logging.error(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) timed out...')
                 self.__flush()
                 return 'TIMEOUT'      
@@ -221,7 +221,7 @@ class TMPacket():
         if self.__verbosityLevel == 2:
             print('<<' + Fore.GREEN + self.__packetStatus + Style.RESET_ALL + '>>')
         elif self.__verbosityLevel == 1:   
-            print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.GREEN + 'received' + Style.RESET_ALL + f' @ {TimeModule.ibaseTime2SCOSdate(TimeModule.stamp2ibaseTime(time.time()))}...')            
+            print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.GREEN + 'received' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')            
         logging.info(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) received...')
         logging.info('\n' + str(self) + '\n')
         self.__flush()
@@ -300,4 +300,4 @@ class TMPacket():
         Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Packet])   
                
         with open(cls.__PIPE_PATH_Packet, 'w') as packetTerminal:
-            packetTerminal.write('\n' +  cls.__packetTerm.bold('Waiting for TM packets...') + '\n')    
+            packetTerminal.write('\n' +  cls.__packetTerm.bold('=' * 120 + '\nTM packets\n' + '=' * 120) + '\n')    

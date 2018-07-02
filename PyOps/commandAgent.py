@@ -5,7 +5,7 @@
 CommandAgent -- describes access to command injection services and command callback creation
 """
 
-from BaseAgent import BaseAgent
+from baseAgent import BaseAgent
 import ITC_INJ
 
 class CommandAgent(BaseAgent):
