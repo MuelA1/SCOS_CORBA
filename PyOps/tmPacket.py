@@ -2,42 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Class for telemetry packet settings
 
-TMPacket -- describes packet filters and packet callback progression
+TMPacket -- describes telemetry packet reception and packet callback progression
 
-[ITMP.TMpacketNotifyData(m_pktAttributes=ITMP.TMpacketAttributes(m_pktDetailsFlag=True, 
-                         m_mnemo='AYHK1900safe', 
-                         m_filingTime=IBASE.Time(m_sec=1511367728, m_micro=245000, m_isDelta=False), (generation time)
-                         m_createTime=IBASE.Time(m_sec=1511367712, m_micro=27010, m_isDelta=False),  (reception time)
-                         m_vcId=0, 
-                         m_pusApId=53, 
-                         m_pusSrcSeqCnt=10683, 
-                         m_pusSrvcType=3, 
-                         m_pusSrvcSubType=25, 
-                         m_pi1Field=1900, 
-                         m_pi2Field=0, 
-                         m_streamId=65535, 
-                         m_filingKey=31900, 
-                         m_gsId=0, 
-                         m_timeStampType='2', 
-                         m_timeQualityFlag='G', 
-                         m_filingFlag=True, 
-                         m_distributionFlag=True, 
-                         m_packetDescription='Srv (3,25) ACS Calculated Safe Mode Data', 
-                         m_simulationFlag=True, 
-                         m_spaceCraftId=605, 
-                         m_sleID=0, 
-                         m_occID=0, 
-                         m_qualDataUnitType='G', 
-                         m_tpsd=-1, 
-                         m_seqCounter=1046, 
-                         m_timeField=True, 
-                         m_interval=10000, 
-                         m_eventFlag='?', 
-                         m_checkFlag=0), 
-                         
-                         m_pktHeaderRawData=b'', 
-                         m_pktBodyRawData=b'', 
-                         m_pktParams=[])]
+@author: Axel Müller 
 """
 
 import ITMP
@@ -57,24 +24,25 @@ class TMPacket():
     __notifyPacketListStatic = []
     __PIPE_PATH_Packet = None
     __packetTerm = None
+    __terminalType = None
     __tmPacketMngr = None
     __packetLock = threading.Lock()
     __rows = {}   
-    __globalTimeout = 20
+    __globalTimeout = 30
     __globalPacketList = []
     __tableHeaders = [Style.BRIGHT + 'Mnemonic', 'SPID', 'Description', 'APID', 'Generation Time', 'Reception Time' + Style.RESET_ALL]
     __tableLogHeaders = ['Generation Time', 'Reception Time']
     
     __packetCount = 0 
-    __verbosityLevel = 2
-    
-    def __init__(self, filingKey, apIds=None, header=False, body=False, param=True):
+    __verbosityLevel = 1
+        
+    def __init__(self, filingKey, header=False, body=False, param=True):
         
         self.__globalPacketList.append(self)
         type(self).__packetCount += 1
         self.__instCount = self.__packetCount
         self.__streamIds = None
-        self.__apIds = apIds if apIds is not None else []  
+        self.__apIds = []
         self.__filingKey = []
         if type(filingKey) is not int:
             raise Exception(f'Please enter a valid filing key (SPID)')
@@ -96,7 +64,8 @@ class TMPacket():
         self.__localCallbackCounter = 0  
         
         self.__packetStatus = None
-
+        self.__ExecutionError = False
+        
     def __str__(self):
         
         if self.__instCount > 999:
@@ -208,13 +177,14 @@ class TMPacket():
         
         while self.__packetListLen == len(self.__packetList):       
             if timeoutTime - time.time() < 0:          
-                self.__packetStatus = 'TIMEOUT'           
+                self.__packetStatus = 'TIMEOUT'                
                 if self.__verbosityLevel == 2: 
                     print('<<' + Fore.YELLOW + self.__packetStatus + Style.RESET_ALL + '>>')                    
                 elif self.__verbosityLevel == 1:   
                     print(f'Packet {self.__instCount} (' + Style.BRIGHT + f'SPID {self.__filingKey[0]}' + Style.RESET_ALL + ') ' + Fore.YELLOW + 'timed out' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')               
                 logging.error(f'Packet {self.__instCount} (SPID {self.__filingKey[0]}) timed out...')
                 self.__flush()
+                self.__ExecutionError = True
                 return 'TIMEOUT'      
         self.__packetStatus = 'RECEIVED'
         self.__packetListLen = len(self.__packetList)
@@ -275,6 +245,10 @@ class TMPacket():
     @classmethod        
     def getPacketNotification(cls, packet):
         cls.__notifyPacketListStatic.append(packet[0])      
+
+    @classmethod
+    def setTerminalType(cls, termType):
+        cls.__terminalType = termType
        
     @classmethod    
     def setVerbosityLevel(cls, verbLevel):
@@ -283,9 +257,19 @@ class TMPacket():
     @classmethod    
     def getVerbosityLevel(cls):
         return cls.__verbosityLevel 
+
+    @classmethod
+    def getExecutionError(cls):
+        
+        if cls.__globalPacketList == []:
+            return False
+        
+        for packet in cls.__globalPacketList:
+            if packet.__ExecutionError == True:
+                return True
     
     @classmethod
-    def createPacketNotificationTerminal(cls, term, terminalType):
+    def createPacketNotificationTerminal(cls, term):
         
         cls.__packetTerm = term
         cls.__PIPE_PATH_Packet = '/tmp/packetNotifyPipe'  
@@ -296,8 +280,8 @@ class TMPacket():
         # named pipe                      
         os.mkfifo(cls.__PIPE_PATH_Packet)
             
-        # new terminal subprocess ('xterm' also possible)   
-        Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Packet])   
+        # new terminal subprocess   
+        Popen([cls.__terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Packet])   
                
         with open(cls.__PIPE_PATH_Packet, 'w') as packetTerminal:
             packetTerminal.write('\n' +  cls.__packetTerm.bold('=' * 120 + '\nTM packets\n' + '=' * 120) + '\n')    

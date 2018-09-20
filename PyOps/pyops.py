@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Facade, higher-level interface to use different agents and to perform specific tasks
 
-Operator -- describes an interface where every object is created
+Operator -- describes an interface (>>Facade<<) where every object is created
+
+@author: Axel Müller
 """
 
 import sys
@@ -24,7 +26,7 @@ class Operator():
     
     def __init__(self):
         
-        self.__verbLevel = 2
+        self.__verbLevel = 1
                
         self.__mibAgent = MIBAgent()
         self.__cmdAgent = CommandAgent()
@@ -32,16 +34,21 @@ class Operator():
         self.__tmPacketAgent = TMPacketAgent()
 
     def __enter__(self):
+        
+        # change terminal window size (especially for verbLevel 2), works on gnome terminal but not for every terminal emulator
+        print('\x1b[8;{rows};{cols}t'.format(rows=30, cols=120))          
+        print('\n' + Style.BRIGHT + '=' * 95 + '\nStarting PyOps...\n' + '=' * 95 + Style.RESET_ALL + '\n')             
+        
         return self
                 
     def __exit__(self, type, value, traceback):
                              
         if type == KeyboardInterrupt:
             self.exitScr(1, keybInterrupt=True)
-        elif Command.getExecutionError() == False:
+        elif Command.getExecutionError() == False and TMParameter.getExecutionError() == False and TMPacket.getExecutionError() == False:
             self.exitScr(0)
                     
-    def configLogging(self, file, lvl):
+    def configLogging(self, fileName, lvl):
         
         if lvl == 1:
             logLvl = logging.CRITICAL
@@ -57,34 +64,40 @@ class Operator():
             print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Please enter a logging level between 1 and 5')           
             sys.exit(1)
             
-        logging.basicConfig(filename=file, format='%(asctime)s (%(module)s): %(message)s', level=logLvl, filemode='w')
+        logging.basicConfig(filename=fileName, format='%(asctime)s (%(module)s): %(message)s', level=logLvl, filemode='w')
         logging.critical('Starting log...\n' + '=' * 100)    
       
     def connect(self, ip, port, mib=True, command=True, parameter=True, packet=True):
         
         try:
-            if mib == True:
+            if mib == True:                
                 self.__mibAgent.connect(ip, port, self.__mibAgent.getNamingService(), self.__mibAgent.getServerMngrType())
+                logging.debug('Successfully connected to external MIB server...')                
             if command == True:
                 self.__cmdAgent.connect(ip, port, self.__cmdAgent.getNamingService(), self.__cmdAgent.getServerMngrType())
+                logging.debug('Successfully connected to external command server...')
             if parameter == True:
                 self.__tmParamAgent.connect(ip, port, self.__tmParamAgent.getNamingService(), self.__tmParamAgent.getServerMngrType())
+                logging.debug('Successfully connected to external parameter server...')
             if packet == True:
                 self.__tmPacketAgent.connect(ip, port, self.__tmPacketAgent.getNamingService(), self.__tmPacketAgent.getServerMngrType())
-
-            logging.debug('Successfully connected to SCOS server...')
-        
+                logging.debug('Successfully connected to external packet server...')
+                
         except Exception as exception: 
             print(Fore.RED + Style.BRIGHT + '\nException during server connection: ' + Style.RESET_ALL + f'{exception}') 
             logging.exception(f'Exception during server connection: {exception}', exc_info=False)
             sys.exit(1)
-            
-    def initialize(self, **initKwargs):
+        
+        self.initialize()
+        
+    def initialize(self):
          
         try:
-            self.__createViewInterfaces(**initKwargs)       
-            self.__getManagers(**initKwargs)
-            self.__setTerminals(**initKwargs)
+            self.__createViewInterfaces()       
+            self.__getManagers()
+            
+            if self.__verbLevel == 2:
+                self.__setTerminals()
 
         except Exception as exception: 
             print(Fore.RED + Style.BRIGHT + '\nException during initialisation: ' + Style.RESET_ALL + f'{exception}')
@@ -93,63 +106,59 @@ class Operator():
                 self.deregisterCommandMngr(error=True)
             sys.exit(1)
             
-    def __createViewInterfaces(self, terminal=None, mib=True, command=True, parameter=True, packet=True):      
+    def __createViewInterfaces(self):      
         
-        if command == True: 
+        if self.__cmdAgent.commandServiceIsConnected() == True: 
             self.__cmdAgent.createCmdInjMngrView(CommandInjectMngrView())  
             logging.debug('Successfully created command view interface...')
             
-        if parameter == True:
+        if self.__tmParamAgent.paramServiceIsConnected() == True:
             tmParamView = self.__tmParamAgent.createParamView(ParameterView())
             TMParameter.setParamView(tmParamView)
             logging.debug('Successfully created parameter view interface...')
             
-        if packet == True:
+        if self.__tmPacketAgent.packetServiceIsConnected() == True:
             tmPacketView = self.__tmPacketAgent.createPacketView(PacketView())
             TMPacket.setPacketView(tmPacketView)
             logging.debug('Successfully created packet view interface...')      
             
-    def __getManagers(self, terminal=None, mib=True, command=True, parameter=True, packet=True):
+    def __getManagers(self):
         
-        if mib == True:
+        if self.__mibAgent.mibServiceIsConnected() == True:
             self.__mibAgent.commandDefinitionIterator()
             self.__mibAgent.parameterDefinitionIterator()
             logging.debug('Getting MIB managers from server...') 
             
-        if command == True:
+        if self.__cmdAgent.commandServiceIsConnected() == True:
             self.__cmdAgent.tcInjectMngr()        
             Command.setCommandInjMngr(self.__cmdAgent.getCmdInjMngr())
             Command.setCommandServerMngr(self.__cmdAgent._serverMngr)
             logging.debug('Getting command manager from server...')
             
-        if parameter == True:
+        if self.__tmParamAgent.paramServiceIsConnected() == True:
             self.__tmParamAgent.tmServerType()
             self.__tmParamAgent.singleTMParamMngr()
             logging.debug('Getting parameter managers from server...')
             
-        if packet == True:
+        if self.__tmPacketAgent.packetServiceIsConnected() == True:
             self.__tmPacketAgent.tmPServerType()
             self.__tmPacketAgent.packetMngr()
             self.__tmPacketAgent.timeMngr()
             TMPacket.setTmPacketMngr(self.__tmPacketAgent.getPacketMngr())
             logging.debug('Getting packet managers from server...')
             
-    def __setTerminals(self, terminal='konsole', mib=True, command=True, parameter=True, packet=True):
-
-        # change window size, works on gnome terminal
-        print('\x1b[8;{rows};{cols}t'.format(rows=30, cols=120))          
-        print('\n' + Style.BRIGHT + '=' * 95 + '\nStarting PyOps...\n' + '=' * 95 + Style.RESET_ALL + '\n')         
+    def __setTerminals(self):
               
-        if command == True and self.__verbLevel == 2:                                 
-            Command.createCallbackTerminal(Terminal(), terminalType=terminal)
+        if self.__cmdAgent.commandServiceIsConnected() == True:                                 
+            Command.createCallbackTerminal(Terminal())
             logging.debug('Creating terminal for command callbacks...')
             
-        if parameter == True and self.__verbLevel == 2:
-            TMParameter.createParamNotificationTerminal(Terminal(), terminalType=terminal)
+        if self.__tmParamAgent.paramServiceIsConnected() == True:
+            TMParameter.createParamNotificationTerminal(Terminal())
             logging.debug('Creating terminal for parameter callbacks...')
             
-        if packet == True and self.__verbLevel == 2:
-            TMPacket.createPacketNotificationTerminal(Terminal(), terminalType=terminal)
+        if self.__tmPacketAgent.packetServiceIsConnected() == True:
+            TMPacket.createPacketNotificationTerminal(Terminal())
             logging.debug('Creating terminal for packet callbacks...')
             
     def __createSingleCommand(self, cmdName, counter=None, **cmdKwargs):
@@ -163,14 +172,14 @@ class Operator():
                                       
         return command
            
-    def createCommand(self, cmdName, numberOfCommands=0, **cmdKwargs):
+    def createCommand(self, cmdName, numberOfCommands=1, **cmdKwargs):
         
         try:
-            if numberOfCommands == 0:
+            if numberOfCommands == 1:
                 command = self.__createSingleCommand(cmdName, **cmdKwargs)
                 return command
             
-            elif type(numberOfCommands) == int:           
+            elif type(numberOfCommands) == int and numberOfCommands != 0:           
                 cmdList = []
                 for cmdNum in range(numberOfCommands):
                     command = self.__createSingleCommand(cmdName, **cmdKwargs)
@@ -220,7 +229,8 @@ class Operator():
             else:
                 print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + 'Command list is empty, please create commands')
                 logging.error('Error: Command list is empty, please create commands', exc_info=False)   
-        # print information of command arguments
+        
+        # print information of *cmds argument
         else:
             for cmd in cmds:
                 if type(cmd) == Command:
@@ -228,27 +238,7 @@ class Operator():
                 elif type(cmd) == list:
                     for singleCmd in cmd:
                         singleCmd.printCommandInfo()
-                    
-#    def injectCommands(self, *cmds):
-#        
-#        inp = str(input('Do you want to continue with the command injection? ' + Style.BRIGHT + '(Y/N)' + Style.RESET_ALL + ': ')).lower().strip()
-#                
-#        try:
-#            if inp[0] == 'y':
-#                self.__inject(*cmds)
-#                       
-#            elif inp[0] == 'n':
-#                self.deregister()
-#                sys.exit()
-#                               
-#            else:
-#                print(Fore.RED + Style.BRIGHT +'Invalid input, please try again...' + Style.RESET_ALL)
-#                return self.injectCommands()
-#        
-#        except Exception as exception:  
-#            print(Fore.RED + Style.BRIGHT + '\nInput error: ' + Style.RESET_ALL + f'{exception}')
-#            return self.injectCommands()       
-          
+                                 
     def injectCommand(self, *cmds):
         """ Method to inject all commands in the global command list """
         
@@ -261,7 +251,7 @@ class Operator():
         if len(cmds) == 0:       
             cmdList = Command.getCommandList()
             
-        # inject selected commands (from argument)
+        # inject selected commands (from *cmds argument)
         else:
             cmdList = []
             for cmd in cmds:
@@ -279,15 +269,6 @@ class Operator():
             logging.error('Error during command injection: Injection list is empty', exc_info=False)
             self.deregisterCommandMngr(error=True)            
                                  
-#    def setCommandInterlock(self, command, ilockList):
-#        
-#        if type(command) == Command:
-#            command.setCommandInterlock(ilockList)
-#            
-#        elif type(command) == list:    
-#            for cmd in command:
-#                cmd.setCommandInterlock(ilockList)
-
     def setGlobalCommandTimeout(self, timeout):
         
         Command.setGlobalCommandTimeout(timeout)
@@ -304,15 +285,24 @@ class Operator():
         
         return TMPacket.getGlobalPacketTimeout()
     
-    def setVerbosity(self, verbLevel):
+    def setVerbosity(self, verbLevel, terminal=None):
         
         if verbLevel in [2, 1]:
             self.__verbLevel = verbLevel
             
+            if verbLevel == 2 and terminal == None:
+                print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + f'Please set terminal type for verbosity level 2')
+                logging.error(f'Error: Terminal type for verbosity level 2 is not set', exc_info=False)
+                sys.exit(1)                
+            elif verbLevel == 2:
+                Command.setTerminalType(terminal)
+                TMParameter.setTerminalType(terminal)
+                TMPacket.setTerminalType(terminal)
+            
             Command.setVerbosityLevel(verbLevel)
             TMParameter.setVerbosityLevel(verbLevel)
             TMPacket.setVerbosityLevel(verbLevel)
-            
+                                    
         else:
             print(Fore.RED + Style.BRIGHT + '\nError: ' + Style.RESET_ALL + f'Verbosity level must be 1 or 2, not {verbLevel}')
             logging.error(f'Error: Verbosity level must be 1 or 2, not {verbLevel}', exc_info=False)

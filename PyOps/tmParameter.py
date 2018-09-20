@@ -2,35 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Class for telemetry parameter settings
 
-TMParameter -- describes parameter callback progression
+TMParameter -- describes telemetry parameter presentation, value checking and callback progression
 
-callback
-m_initValue=ITM.AllValues(m_sampleTime=IBASE.Time(m_sec=1511367658, m_micro=916000, m_isDelta=False),
-                          m_oolState='n', 
-                          m_sccState='\x00', 
-                          m_rawValue=ITM.ReducedValue(m_value=IBASE.Variant(m_doubleFormat = -0.37105342745780945), m_validity=24576), 
-                          m_engValue=ITM.ReducedValue(m_value=IBASE.Variant(m_doubleFormat = -0.37105342745780945), m_validity=24576), 
-                          m_synValue=ITM.ReducedValue(m_value=IBASE.Variant(m_nullFormat = False), m_validity=0), 
-                          m_sourceValue=ITM.ReducedValue(m_value=IBASE.Variant(m_doubleFormat = -0.37105342745780945), m_validity=24576), 
-                          m_defaultValue=ITM.ReducedValue(m_value=IBASE.Variant(m_doubleFormat = -0.37105342745780945), m_validity=24576)))
-
-MIB data 
-IMIB.ParamDef(m_name='PBTPWR00', 
-              m_description='BAT_STR_POWER_0', 
-              m_type='0', 
-              m_width=32, 
-              m_hasValPar=True, 
-              m_valPar='PBVPWR00', 
-              m_valChk=1, 
-              m_valueFlags=4912, 
-              m_rawValueUnit='RAW', 
-              m_engValueUnit='W', 
-              m_synValueUnit='', 
-              m_sourceValueUnit='RAW', 
-              m_defaultValueUnit='W', 
-              m_calibration=IMIB.Calibration(m_pointCalibration = IMIB.PointCalibration(m_name='W', m_description='Display Unit W', m_interpretation=True, m_points=[IMIB.CalibrationPoint(m_sourceValue=-1000000.0, m_calibValue=-1000000.0), IMIB.CalibrationPoint(m_sourceValue=1000000.0, m_calibValue=1000000.0)])), 
-              m_sourceValueDetails=IMIB.ValueDetailDef(m_hasValueRange=True, m_minValue=-1200000.0, m_maxValue=1200000.0, m_valueType='float1', m_decim=8, m_hasLimits=False), m_calibValueDetails=IMIB.ValueDetailDef(m_hasValueRange=True, m_minValue=-122.0, m_maxValue=142.0, m_valueType='float1', m_decim=3, m_hasLimits=True))
-
+@author: Axel Müller 
 """
 
 import IMIB
@@ -49,8 +23,11 @@ class TMParameter():
     __paramView = None
     __notifyParameterListStatic = []
     __PIPE_PATH_Param = None
-    __paramTerm = None            
-    __oolStateDict = {'n':Fore.GREEN + 'NOMINAL' + Style.RESET_ALL, 'v':Fore.RED + 'VIOLATION' + Style.RESET_ALL, 'u':'WARNING_UNKNOWN', 'l':'WARNING_LOW', 'h':'WARNING_HIGH', 'U':'ALARM_UNKNOWN', 'L':Fore.RED + 'ALARM_LOW' + Style.RESET_ALL, 'H':Fore.RED + 'ALARM_HIGH' + Style.RESET_ALL, 'S':'SCC'}
+    __paramTerm = None
+    __terminalType = None            
+    __oolStateDict = {'n':Fore.GREEN + 'NOMINAL' + Style.RESET_ALL, 'v':Fore.RED + 'VIOLATION' + Style.RESET_ALL, 'u':'WARNING_UNKNOWN', 'l':'WARNING_LOW',
+                      'h':'WARNING_HIGH', 'U':'ALARM_UNKNOWN', 'L':Fore.RED + 'ALARM_LOW' + Style.RESET_ALL, 'H':Fore.RED + 'ALARM_HIGH' + Style.RESET_ALL, 'S':'SCC'}
+    
     __oolLogStateDict = {'n':'NOMINAL', 'v':'VIOLATION', 'u':'WARNING_UNKNOWN', 'l':'WARNING_LOW', 'h':'WARNING_HIGH', 'U':'ALARM_UNKNOWN', 'L':'ALARM_LOW', 'H':'ALARM_HIGH', 'S':'SCC'}
     __valueTypeDict = {'raw':IMIB.PARAM_RAW_VALUE, 'eng':IMIB.PARAM_ENG_VALUE, 'syn':IMIB.PARAM_SYN_VALUE, 'src':IMIB.PARAM_SOURCE_VALUE, 'def':IMIB.PARAM_DEFAULT_VALUE, 'ool':IMIB.PARAM_OOL, 'scc':IMIB.PARAM_SCC}
 
@@ -60,8 +37,8 @@ class TMParameter():
     __tableHeaders = [Style.BRIGHT + 'Name', 'Description', 'Sample time', 'OOL state', 'Raw value', 'Eng value (Unit)', 'Vldity' + Style.RESET_ALL]
     __tableLogHeaders = ['Sample time', 'OOL state', 'Raw value', 'Eng value (Unit)', 'Vldity']
     __paramCount = 0       
-    __verbosityLevel = 2
-    
+    __verbosityLevel = 1
+     
     def __init__(self, name, description, notifyEveryUpdate=True, notifySelectedValChange=False, notifyOnlyOnce=False):
         
         self.__globalParamList.append(self)
@@ -87,7 +64,9 @@ class TMParameter():
         self.__callbackThread = None
         self.__globalCallbackCounter = 0
         self.__localCallbackCounter = 0    
-                     
+         
+        self.__ExecutionError = False   
+         
     def __str__(self):
         
         if self.__instCount > 999:
@@ -129,15 +108,12 @@ class TMParameter():
     def registerParameter(self):
             
         # arg2: notify on every update
-        # arg3: notify if selected value (raw, default,...) changes (IMIB.PARAM_OOL interesting), IMIB.PARAM_RAW_VALUE (IMIB.ParamValueType) 
+        # arg3: notify if selected value (raw, default,...) changes 
         # arg4: notify only once            
         self.__viewKey = self.__paramIF.registerParam(self.__paramView, self.__notifyEveryUpdate, self.__notifySelectedValChange, self.__notifyOnlyOnce)
         print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') is registered...')        
         logging.debug(f'Parameter {self.__instCount} ({self.__paramName}) is registered...')
-        
-        # Test
-        # paramInit = self.__paramIF.registerParamInit(self.__paramView, self.__notifyEveryUpdate, self.__notifySelectedValChange, self.__notifyOnlyOnce)
-        
+                
         # start callback thread          
         self.__callbackThread = threading.Thread(target=self.printParameterValue)
         self.__callbackThread.start()
@@ -221,6 +197,7 @@ class TMParameter():
                         logging.warning(f'Parameter {self.__instCount} ({self.__paramName}) received no valid eng. value...')
                         logging.warning('\n' + str(self) + '\n')
                         self.__flush()
+                        self.__ExecutionError = True
                         return 'NOT_VALID'
             elif raw == True:
                 for param in reverseParamList:   
@@ -241,6 +218,7 @@ class TMParameter():
                         logging.warning(f'Parameter {self.__instCount} ({self.__paramName}) received no valid raw value...')
                         logging.warning('\n' + str(self) + '\n')
                         self.__flush()
+                        self.__ExecutionError = True
                         return 'NOT_VALID'                    
         else:
             if self.__verbosityLevel == 2:
@@ -249,6 +227,7 @@ class TMParameter():
                 print(f'Parameter {self.__instCount} (' + Style.BRIGHT + f'{self.__paramName}' + Style.RESET_ALL + ') ' + Fore.RED + 'received no callback' + Style.RESET_ALL + f' @ {timeModule.ibaseTime2SCOSdate(timeModule.stamp2ibaseTime(time.time()))}...')                           
             logging.error(f'Parameter {self.__instCount} ({self.__paramName}) received no callback...')           
             self.__flush()
+            self.__ExecutionError = True
             return None
        
     def unregisterParamView(self):    
@@ -282,6 +261,10 @@ class TMParameter():
     @classmethod        
     def getParameterNotification(cls, key, value):
         cls.__notifyParameterListStatic.append((key, value))        
+
+    @classmethod
+    def setTerminalType(cls, termType):
+        cls.__terminalType = termType
                
     @classmethod    
     def setVerbosityLevel(cls, verbLevel):
@@ -290,9 +273,19 @@ class TMParameter():
     @classmethod    
     def getVerbosityLevel(cls):
         return cls.__verbosityLevel 
+
+    @classmethod
+    def getExecutionError(cls):
+        
+        if cls.__globalParamList == []:
+            return False
+        
+        for param in cls.__globalParamList:
+            if param.__ExecutionError == True:
+                return True
     
     @classmethod
-    def createParamNotificationTerminal(cls, term, terminalType):
+    def createParamNotificationTerminal(cls, term):
         
         cls.__paramTerm = term
         cls.__PIPE_PATH_Param = '/tmp/paramNotifyPipe'  
@@ -303,8 +296,8 @@ class TMParameter():
         # named pipe            
         os.mkfifo(cls.__PIPE_PATH_Param)
             
-        # new terminal subprocess ('xterm' also possible) 
-        Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Param])   
+        # new terminal subprocess
+        Popen([cls.__terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Param])   
                
         with open(cls.__PIPE_PATH_Param, 'w') as paramTerminal:
             paramTerminal.write('\n' +  cls.__paramTerm.bold('=' * 120 + '\nTM parameters\n' + '=' * 120) + '\n')    

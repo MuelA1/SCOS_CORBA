@@ -14,7 +14,7 @@ from pyops import Operator
 with Operator() as op:
     
     # Set up operator
-    #op.setVerbosity(2)
+    #op.setVerbosity(2, terminal='xfce4-terminal')
     op.setVerbosity(1)
     
     # Logging level 1 (critical info only) - 5 (detailed information)
@@ -24,8 +24,7 @@ with Operator() as op:
     op.setGlobalPacketTimeout(25)
     
     op.connect('192.168.197.23', 20000)
-    op.initialize(terminal='xfce4-terminal')
-
+  
     # This is the ping command
     PING = op.createCommand('PING')
     op.printCommandInformation(PING)

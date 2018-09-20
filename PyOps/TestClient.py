@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 """ Client for test purposes -- here only pyops module (Facade) has to be used
 
+@author: Axel Müller
+
 #==============================================================================
 #                          Command examples
 #==============================================================================
         
-#  PING, 'YYC00000'
+# 'PING', 'YYC00000'
 # 'PPC00201'
     #PCDU Subsystem
     #Srv(2,130) CheckBattCap1      
@@ -22,7 +24,6 @@
 # 'AGC0DW02'
     #GPS Subsystem
     #(2,130) GPS2 SetDoppWin
-    #cmd.setCommandParameter('AGP00000', valueType='U', value=50)  
 # 'DSC00001'
     #Repeater    
 # 'DSC32000'
@@ -59,7 +60,7 @@ cmd = op.createCommand(cmdName,
                        timeout=, 
                        interlock=)     
 
-All keyword arguments optional, cmdName is required
+All keyword arguments are optional, cmdName is required
 
 Example:
      cmdName: 'YMC24101'
@@ -90,10 +91,10 @@ cmd.setCommandParameter(paramName, isEng=, unit=, radix=, valueType=, value=)
 
 or
 
-op.setCommandParameter(cmd, paramName, isEng=, unit=, radix=, valueType=, value=)
+operator.setCommandParameter(cmd, paramName, isEng=, unit=, radix=, valueType=, value=)
 (cmd can also be a list of commands here)
 
-No keyword argument, then default values from MIB are used
+No keyword argument, then default value from MIB is used
 Default parameters are used if method is not called
 
 Example:
@@ -133,7 +134,7 @@ Important: if value is set, then value type has also to be set
 
 param = op.registerTMParameter(paramName, notifyEveryUpdate=, notifySelectedValChange=, notifyOnlyOnce=)
 
-All keyword arguments optional, parameter name is required
+All keyword arguments are optional, parameter name is required
 Register parameter only once and use value updates from callback
 
 Example:
@@ -157,14 +158,13 @@ param.getLastValidValue(raw=) returns last raw or eng. value (default: raw=False
 -------------------------------- TM packets  ----------------------------------
 ===============================================================================
 
-packet = op.registerTMPacket(filingKey, apIds=, header=, body=, param=)
+packet = op.registerTMPacket(filingKey, header=, body=, param=)
 
 All keyword arguments optional, filing key has to be provided
 Register packet (per filing key) only once and use reception updates from callback
 
 Example:
     filingKey: 31900
-    apIds=[53]  (default: all apIds ([]))
     header=True (default: False, defines if packet header data is transmitted in callbacks)
     body=True   (default: False, defines if packet body data is transmitted in callbacks)
     param=True  (default: True, defines if packet parameters are transmitted in callbacks)
@@ -174,32 +174,34 @@ Example: timeout=10, default is global packet timeout (no timeout Kwarg)
 
 """
 
-import sys
-sys.path.append('AAIDL')
-#import profile
+#import sys
+#sys.path.append('AAIDL')
+
 from pyops import Operator
 
 with Operator() as operator:
 
-    operator.setGlobalCommandTimeout(80) 
-    operator.setGlobalPacketTimeout(20)
     
     # 1 - command information, injection and success are printed in 1 console
-    # 2 - Progressbar and spinners, printed in multiple consoles  
+    # 2 - Progressbar and spinners, printed in multiple consoles
+    # terminal='konsole', 'gnome-terminal', 'xterm', 'xfce4-terminal' works
+    
+    #operator.setVerbosity(2, terminal='xfce4-terminal')
     operator.setVerbosity(1)
+
     # Logging level 1 (critical info only) - 5 (detailed information)
     operator.configLogging('pyops_logfile.txt', 5)
     
+    operator.setGlobalCommandTimeout(80) 
+    operator.setGlobalPacketTimeout(20)
+           
     commandFlag=True
     parameterFlag=True
     packetFlag=True
-       
-    # '192.168.197.50', 20001
+     
+    # '192.168.197.50', '20001'
     operator.connect('192.168.197.23', '20000', command=commandFlag, parameter=parameterFlag, packet=packetFlag)
-    
-    # terminal='konsole' or 'gnome-terminal' or 'xterm' or 'xfce4-terminal' works
-    operator.initialize(terminal='xfce4-terminal', command=commandFlag, parameter=parameterFlag, packet=packetFlag)
-             
+                         
 #==============================================================================
 #                              Test 0 (single command)
 #==============================================================================   
@@ -208,7 +210,7 @@ with Operator() as operator:
         global command
         
         command = operator.createCommand(cmd)
-    
+       
 #==============================================================================
 #                                 Test 1 (Ping)
 #==============================================================================
@@ -217,10 +219,7 @@ with Operator() as operator:
         global PING    
         
         PING = operator.createCommand('PING', numberOfCommands=number)
-         
-    # Check:
-        # Callback? Sorted list?        
-      
+                  
 #==============================================================================
 #                              Test 2 (Interlock)
 #==============================================================================
@@ -231,13 +230,9 @@ with Operator() as operator:
         YMC25104 = operator.createCommand('YMC25104')  
         operator.setCommandParameter(YMC25104, 'YMP00015', isEng=True, valueType='S', value='BATT_STR_0')
         
-        PING_2_6 = operator.createCommand('YYC00000', numberOfCommands=5, interlock=['PASSED'])               
+        PING_2_6 = operator.createCommand('YYC00000', numberOfCommands=5, interlock=['FAILED'])               
         PING_7_11 = operator.createCommand('YYC00000', numberOfCommands=5, interlock=[])             
-    
-    # Check:
-        # Full callback?
-        # Interlock works? Also for list?
-                  
+                     
 #==============================================================================
 #                         Test 3 (absolute release time)
 #==============================================================================
@@ -245,28 +240,19 @@ with Operator() as operator:
         
         global PPC00201, PING_2_6 
      
-        PPC00201 = operator.createCommand('PPC00201', absReleaseTime='2018.177.12.20.30.000')
-        PING_2_6 = operator.createCommand('YYC00000', absReleaseTime='2018.177.12.21.20.000', numberOfCommands=5)
-     
-    # Check:
-        # absolute release time for multiple commands? 
-    
+        PPC00201 = operator.createCommand('PPC00201', absReleaseTime='2018.242.11.50.30.000')
+        PING_2_6 = operator.createCommand('YYC00000', absReleaseTime='2018.242.11.55.20.000', numberOfCommands=5)
+        
 #==============================================================================
 #                          Test 4 (relative release time)
 #==============================================================================
     def test_relReleaseTime():
         
         global PPC00A00, YMC22003_2_6            
-              
-        #PPC00A00 = operator.createCommand('PPC00A00', absReleaseTime='2018.178.08.30.25.928234')
+                  
         PPC00A00 = operator.createCommand('PPC00A00')
         YMC22003_2_6 = operator.createCommand('YMC22003', numberOfCommands=5, relReleaseTime='00.00.03')
-                
-    # Check:
-        # absolute release time in UTC 0? 
-        # relative release time all 10 sec?
-        # precision?
-    
+                   
 #==============================================================================
 #                          Test 5 (absolute execution time)
 #==============================================================================
@@ -274,13 +260,8 @@ with Operator() as operator:
         
         global PPC00A00, PING   
         
-        PPC00A00 = operator.createCommand('PPC00A00', absExecutionTime='2018.183.15.01.40.928234')
-        PING = operator.createCommand('PING', interlock=[])
-    
-    # Check:
-        # Timeout based on execution time?
-        # SCOS Timeout?
-          
+        PPC00A00 = operator.createCommand('PPC00A00', absExecutionTime='2018.242.13.26.40.928234')
+                 
 #==============================================================================
 #                                 Test 6 (timeout)
 #==============================================================================
@@ -290,12 +271,7 @@ with Operator() as operator:
         YMC25101 = operator.createCommand('YMC25101', timeout=60)
         operator.setCommandParameter(YMC25101, 'YMP00015', isEng=True, valueType='S', value='SUS_F_N')
         operator.setCommandParameter(YMC25101, 'YMP00003', valueType='U', value=8)
-     
-    # Check:
-        # Release ASAP, timeout in 60s? 
-        # Does programm work correctly?
-        # SCOS Timeout?
-            
+                
 #==============================================================================
 #                                 Test 7 (timeout)
 #==============================================================================
@@ -305,12 +281,7 @@ with Operator() as operator:
         PPC00A00Kwargs = {'absReleaseTime':'2018.177.13.00.25.928234',
                           'timeout':100}
         PPC00A00 = operator.createCommand('PPC00A00', **PPC00A00Kwargs)
-    
-    # Check:
-        # Release time correct? Timeout 100s later? 
-        # Does programm work correctly?
-        # SCOS Timeout?        
-    
+           
 #==============================================================================
 #                           Test 8 (multiple time settings)
 #==============================================================================
@@ -329,10 +300,7 @@ with Operator() as operator:
         
         PPC00400_7 = operator.createCommand('PPC00400', **PPC00400_7Kwargs)
         operator.setCommandParameter(PPC00400_7, 'PPP00004', valueType='D', value=5)
-        
-    # Check:
-        # multiple time settings, program works correctly?
-    
+           
 #==============================================================================
 #                             Test 9 (multiple commands)
 #==============================================================================
@@ -351,11 +319,7 @@ with Operator() as operator:
         operator.setCommandParameter(PPC02001, 'YMP00000', valueType='U', value=200000)
         operator.setCommandParameter(PPC00600_2_6, 'PBP00002', valueType='U', value=342)
         operator.setCommandParameter(PPC00600_2_6, 'DSP00011', valueType='U', value=100)
-            
-    # Check:
-        # multiple time settings, program works correctly?
-        # parameter setting works correctly?
-        
+                    
 #==============================================================================
 #                           Test 10 (multiple commands)
 #==============================================================================
@@ -376,10 +340,7 @@ with Operator() as operator:
         operator.setCommandParameter(DSC32000_1, 'DSP00000', valueType='U', value=3000)
         operator.setCommandParameter(DSC32000_1, 'DSP00003', isEng=False, unit='', radix = 'D', valueType='U', value=100000)
         operator.setCommandParameter(DSC32000_1, 'DSP00003', valueType='U', value=200000)
-           
-    # Check:
-        # parameters, time and interlock settings work correctly?   
-    
+              
 #==============================================================================
 #                           Test 11 (repeater)
 #==============================================================================
@@ -388,8 +349,10 @@ with Operator() as operator:
             
         global DSC00001, DSC00003, DSC00051
           
-        DSC00001 = operator.createCommand('DSC00001', counter={'DSP00002':[4], 'DSP00004':[6], 'DSP00006':[1, 4, 1, 4, 5, 10]})
-                      
+        #DSC00001 = operator.createCommand('DSC00001', counter={'DSP00002':[4], 'DSP00004':[6], 'DSP00006':[1, 4, 1, 4, 5, 10]})
+
+        DSC00001 = operator.createCommand('DSC00001', counter={'DSP00002':[3], 'DSP00004':[2], 'DSP00006':[2, 1]})        
+                    
         DSC00003 = operator.createCommand('DSC00003', counter={'DSP00007':[7]})
         operator.setCommandParameter(DSC00003, 'DSP00000', isEng=True, valueType='S', value='ACS Safe Data')  
         operator.setCommandParameter(DSC00003, 'DSP00000', isEng=True, valueType='S', value='DDS Data') 
@@ -405,10 +368,10 @@ with Operator() as operator:
 #==============================================================================    
     
     if commandFlag == True: 
-         
-        #test_singleCmd('FEINISVR')
+        
+        test_singleCmd('FEINISVR')
         test_ping(5)
-        #test_interlock()
+        test_interlock()
         #test_absReleaseTime()
         test_relReleaseTime()
         #test_absExecutionTime()
@@ -427,9 +390,6 @@ with Operator() as operator:
         operator.printCommandInformation()
         operator.injectCommand()
         
-        # Check:
-            # test with all commands, single commands and command list
-              
 #==============================================================================
 #                          TM parameter(s)
 #==============================================================================    
@@ -440,22 +400,20 @@ with Operator() as operator:
         param2 = operator.registerTMParameter('PBTPWR01')
         param3 = operator.registerTMParameter('PBTCAP03')
         param4 = operator.registerTMParameter('AYTM0M00')
-        #param5 = operator.registerTMParameter('DSTFEF00')
-        #param6 = operator.registerTMParameter('DSTFEF01')
-        #param7 = operator.registerTMParameter('DCTCDR00')
-        #param8 = operator.registerTMParameter('DCTCDR01')
+        param5 = operator.registerTMParameter('DSTFEF00')
+        param6 = operator.registerTMParameter('DSTFEF01')
+        param7 = operator.registerTMParameter('DCTCDR00')
+        param8 = operator.registerTMParameter('DCTCDR01')
         
 # ------------------------------- get values ----------------------------------
-        
-        lastVal1 = param1.getLastValidValue()
+ 
+        operator.pauseForExecution(10)
+       
+        lastVal1 = param1.getLastValidValue()        
         lastVal2 = param2.getLastValidValue(raw=True)
         lastVal3 = param3.getLastValidValue()
         lastVal4 = param4.getLastValidValue()
-        #lastVal5 = param5.getLastValidValue()
-        #lastVal6 = param6.getLastValidValue()
-    
-        
-    #    operator.pauseForExecution(30)
+            
     #    lastVal1 = param1.getLastValidValue()
     #    print(lastVal1)
     #    operator.pauseForExecution(30)
@@ -468,36 +426,23 @@ with Operator() as operator:
     #    lastVal4 = param1.getLastValidValue()
     #    print(lastVal4)
     #    operator.pauseForExecution(30)
-                  
-    # Check:
-        # Does function return last valid value?
-        # Register parameter only once and use function for multiple calls?  
-        # what if value is not valid (param5, param6)
-        # check log
-        # callback terminal: parameter reception live?    
+                    
 #==============================================================================
 #                          TM packet(s)
 #============================================================================== 
-    
+        
     if packetFlag == True:
         
         packet1 = operator.registerTMPacket(31900)
         packet2 = operator.registerTMPacket(35800)
-        packet3 = operator.registerTMPacket(40000)
-    
+         
 # ----------------------------- wait for packets ------------------------------
     
-        if packet2.verifyPacketReception(timeout=20) == 'RECEIVED':
+        if packet2.verifyPacketReception(timeout=5) == 'RECEIVED':
             pass
-        elif packet2.verifyPacketReception(timeout=10) == 'TIMEOUT':            
+        elif packet2.verifyPacketReception(timeout=3) == 'TIMEOUT':            
             operator.exitScr(1)
-                    
-    # Check:
-        # Does packet reception function work?
-        # Register packet only once and use function for multiple calls?
-        # check log
-        # callback terminal: packet reception live?
-        
+            
 #==============================================================================
 #                        Write separate logfiles (if needed)
 #==============================================================================   

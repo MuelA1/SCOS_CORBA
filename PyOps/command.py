@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Class for command injection
 
-Command -- describes command values, command injection and command status
+Command -- describes command settings, command injection and command status progression
+
+@author: Axel Müller 
 """
 
 import IBASE, ITC, ITC_INJ
@@ -18,11 +20,7 @@ from blessings import Terminal
 import logging
 
 class Command():
-       
-    #__paramValueDict = {'0':'m_nullFormat','i':'m_shortFormat','I':'m_longFormat','u':'m_ushortFormat','U':'m_ulongFormat','F':'m_floatFormat','D':'m_doubleFormat','C':'m_charFormat','B':'m_booleanFormat','O':'m_octetFormat','S':'m_stringFormat','s':'m_bstringFormat','T':'m_timeFormat'}
-    # cmdParameters[i].m_value._d_to_m
-    #__stageList = ['s', 'D', 'R', 'G', 'T', 'O', 'A', 'S', '0', '1', '2', '3', '4', '5', 'C']
-    
+          
     __paramValueTypeDict = {'\x00':'Null', '0':'Null','i':'Short','I':'Long','u':'Ushort','U':'Ulong','F':'Float','D':'Double','C':'Char','B':'Boolean','O':'Octet','S':'String','s':'Bstring','T':'Time'}
     __paramRadixDict = {'B':'Binary','O':'Octal','D':'Decimal','H':'Hexa'}   
     __checkStateTypeDict = {'E':'Enabled', 'D':'Disabled', 'O':'Override', 'N':'No notification'}
@@ -34,7 +32,7 @@ class Command():
     __statusDict = {0x0001:'NOT_APPLICABLE',0x0002:'PASSED',0x0004:'UNCERTAIN_PASSED',0x0008:'UNVERIFIED',0x0010:'IDLE',0x0020:'PENDING',0x0040:'DISABLED',0x0080:'FAILED',
                     0x0100:'UNCERTAIN_FAILED',0x0200:'UNKNOWN',0x0400:'AFFECTED',0x0800:'SUPERSEDED',0x1000:'TIMEOUT',0x2000:'ASSUMED',0x4000:'SCC'}
      
-    # global command status callback list
+    # global command status callback list, all callbacks for all instances are appended here
     __commandStatusListStatic = []
     
     # global system status callback list
@@ -49,6 +47,7 @@ class Command():
     
     __cmdTerm = Terminal()
     __cbTerm = None
+    __terminalType = None
     __PIPE_PATH_Callb = None
         
     __cmdInjMngr = None
@@ -61,16 +60,14 @@ class Command():
     __paramStyleHeaders = [Style.BRIGHT + 'Name', 'Description', 'Eng. Val', 'Unit', 'Radix', 'Value Type', 'Value' + Style.RESET_ALL]
     __paramLogHeaders = ['Name', 'Description', 'Eng. Val', 'Unit', 'Radix', 'Value Type', 'Value']
     
-    __verbosityLevel = 2
+    __verbosityLevel = 1
     
     __passedCounter = 0
     __failedCounter = 0
     __timeoutCounter = 0
     
     __ExecutionError = False
-    
-    __call = 0
-    
+           
     def __init__(self, name, description, absReleaseTime=IBASE.Time(0,0,False), relReleaseTime=None, absExecutionTime=IBASE.Time(0,0,False), staticPtv='D', dynamicPtv='D', cev=True, timeout=None, interlock=None):
         
         self.__cmdList.append(self)
@@ -274,12 +271,14 @@ class Command():
                     if userValType == 'Null':
                         userValType = Fore.RED + Style.BRIGHT + userValType + Style.RESET_ALL
                     userVal = Fore.RED + Style.BRIGHT + f"{vars(self.__cmdParameters[i].m_value).get('_v')}" + Style.RESET_ALL
-                    self.__paramStyleTableRows.append([userValName, self.__completeCmdParameters[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), userValType, userVal])
+                    self.__paramStyleTableRows.append([userValName, self.__completeCmdParameters[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, 
+                                                       self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), userValType, userVal])
                     userInput = True
                 # editable   
                 elif self.__completeCmdParameters[i].m_isEditable == False:
                     notEditName = Fore.YELLOW + Style.BRIGHT + self.__cmdParameters[i].m_name + Style.RESET_ALL                                                     
-                    self.__paramStyleTableRows.append([notEditName, self.__completeCmdParameters[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')), vars(self.__cmdParameters[i].m_value).get('_v')])
+                    self.__paramStyleTableRows.append([notEditName, self.__completeCmdParameters[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, 
+                                                       self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')), vars(self.__cmdParameters[i].m_value).get('_v')])
                     isEditable = False
                 # modified    
                 elif self.__paramIsModified[i][4] == True:
@@ -309,7 +308,8 @@ class Command():
                     isModified = True                                                           
                     self.__paramStyleTableRows.append([modName, self.__completeCmdParameters[i].m_description, modEngVal, modUnit, modRadix, modValueType, modValue])
                 else:                             
-                    self.__paramStyleTableRows.append([self.__cmdParameters[i].m_name, self.__completeCmdParameters[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')), vars(self.__cmdParameters[i].m_value).get('_v')])
+                    self.__paramStyleTableRows.append([self.__cmdParameters[i].m_name, self.__completeCmdParameters[i].m_description, self.__cmdParameters[i].m_isEngValue, self.__cmdParameters[i].m_unit, 
+                                                       self.__paramRadixDict.get(self.__cmdParameters[i].m_radix), self.__paramValueTypeDict.get(vars(self.__cmdParameters[i].m_value).get('_d')), vars(self.__cmdParameters[i].m_value).get('_v')])
                                 
                 i += 1
                                 
@@ -360,10 +360,9 @@ class Command():
     def printCallback(self):
         """ Method for printing the full callback """   
                
-        # lock thread while printing, for clean output print
+        # locks thread while printing, for clean output print
         self.__lock.acquire()
-        try: 
-             
+        try:              
             compStatus = None
             if self.__callbackCompletedStatus == 'PASSED':   
                 compStatus = Fore.GREEN + self.__callbackCompletedStatus + Style.RESET_ALL                
@@ -420,12 +419,6 @@ class Command():
     def getCallbackCompletedStatus(self):
         return self.__callbackCompletedStatus
     
-#    def setCommandInterlock(self, ilockList):        
-#        self.__interlock = ilockList
-#                          
-#    def getCommandInterlock(self):
-#        return self.__interlock
-
     def getReleaseTime(self):
         return self.__absReleaseTime
     
@@ -441,7 +434,7 @@ class Command():
     def getInstCount(self):
         return self.__instCount
             
-    # set default MIB command parameters (different structure for injection)
+    # set default MIB command parameters 
     def setMIBCommandParameters(self, counter=None):
 
         repeater = False        
@@ -499,7 +492,9 @@ class Command():
                     self.__setDefaultParam(param)
                                          
     def __setCounterAndParameters(self, param, counter, j):
-                       
+
+# ---------------------- example -----------------------------
+                          
 #        counter = {'DSP00002': ([2], [0]),
 #                   'DSP00004': ([5], [0]),
 #                   'DSP00006': ([2, 4, 1, 4, 5], [0])}
@@ -509,6 +504,7 @@ class Command():
 #        
 #        value index (second Array)
 #        counter[counterParam][1][0]
+# ------------------------------------------------------------
         
         for counterParam in counter:
             if counterParam == param.m_name:                     
@@ -537,7 +533,7 @@ class Command():
         paramStruct = ITC.CommandParam(param.m_name, param.m_engValueIsDefault, param.m_unit, param.m_defaultRadix, param.m_defaultValue)                
         self.__cmdParameters.append(paramStruct)                           
         self.__completeCmdParameters.append(param)
-        # vector which describes if parameter is modified in method setCommandParameter 
+        # vector which describes if parameter has been modified in method setCommandParameter() 
         self.__paramIsModified.append([False, False, False, False, False])          
                                                                                         
     def setCommandParameter(self, name, isEng=None, unit=None, radix=None, valueType=None, value=None):
@@ -579,7 +575,7 @@ class Command():
             self.__flush() 
             self.__injectionLock.acquire()
             
-            # relative release time (timeout here?)
+            # relative release time
             if self.__lastCommand is not None and type(self.__relReleaseTime) == str:
                 while(str(self.__lastCommand.getReleaseTime()) == str(IBASE.Time(0,0,False))):
                     pass
@@ -595,7 +591,7 @@ class Command():
             self.__info = ITC_INJ.ReleaseInfo(self.__absReleaseTime, IBASE.Time(0,0,False), IBASE.Time(0,0,False), self.__absExecutionTime, self.__staticPtv, self.__dynamicPtv, self.__cev, ITC_INJ.ACK_MIB_DEFAULT)    
             cmdRequest = ITC_INJ.CommandRequest(self.__context, self.__destination, self.__mapId, self.__vcId, self.__cmdName, self.__cmdParameters, self.__paramSets, self.__info, self.__ilockType, self.__ilockStageType, self.__additionalInfo, self.__tcRequestID)
             
-            # wait until previous command is injected (pay attention if previous commands are not injected!)
+            # wait until previous command is injected 
             while self.__lastCommand is not None and self.__lastCommand.getInjRequestID() is 0:
                 pass  
                                     
@@ -732,7 +728,7 @@ class Command():
                                                          self.__commandStatusList[self.__localCallbackCounter].m_updateTime])                                                                                                    
                         
                         logging.debug(f'Command {self.__instCount} ({self.__cmdName}) received callback ({self.__commandStatusList[self.__localCallbackCounter].m_stage} - {self.__statusDict.get(self.__commandStatusList[self.__localCallbackCounter].m_stage_status)})...')
-                        # callback finished, finish thread and print full callback
+                        # callback finished, stop thread and print full callback
                         if self.__commandStatusList[self.__localCallbackCounter].m_completed_flag == True: 
                                
                             self.__callbackThread.do_run = False  
@@ -805,9 +801,7 @@ class Command():
         status.m_updateTime = timeModule.ibaseTime2SCOSdate(status.m_updateTime)
         cls.__commandStatusListStatic.append(status)
                 
-        #sort by time
-        #sorted(cb.m_updateTime for cb in list1)
-        #sorted(list1, key=lambda cb: cb.m_updateTime)
+        #sort by update time
         cls.__commandStatusListStatic.sort(key=attrgetter('m_updateTime'))
 
     @classmethod        
@@ -823,7 +817,7 @@ class Command():
         return cls.__cmdCount
     
     @classmethod
-    def createCallbackTerminal(cls, term, terminalType):
+    def createCallbackTerminal(cls, term):
         
         cls.__cbTerm = term
         cls.__PIPE_PATH_Callb = '/tmp/callbackPipe'  
@@ -834,8 +828,8 @@ class Command():
         # named pipe                     
         os.mkfifo(cls.__PIPE_PATH_Callb)
             
-        # new terminal subprocess (Test with different emulators: 'gnome-terminal', 'xterm', 'konsole',...) 
-        Popen([terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Callb])   
+        # new terminal subprocess (works with different emulators: 'gnome-terminal', 'xterm', 'konsole', 'xfce4-terminal',...) 
+        Popen([cls.__terminalType, '-e', 'tail -f %s' % cls.__PIPE_PATH_Callb])   
           
         #os.environ.get('TERM') 
         with open(cls.__PIPE_PATH_Callb, 'w') as cbTerminal:
@@ -848,6 +842,10 @@ class Command():
     @classmethod
     def setGlobalCommandTimeout(cls, globalTimeout):
         cls.__globalTimeout = globalTimeout
+    
+    @classmethod
+    def setTerminalType(cls, termType):
+        cls.__terminalType = termType
     
     @classmethod    
     def setVerbosityLevel(cls, verbLevel):

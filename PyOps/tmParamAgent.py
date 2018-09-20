@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Access to SCOS-2000 TM Parameter Data 
 
-TMParamAgent -- describes access to telemetry parameter services
+TMParamAgent -- describes CORBA access to the external telemetry parameter services
+
+@author: Axel Müller
 """
 
 from baseAgent import BaseAgent
@@ -49,3 +51,6 @@ class TMParamAgent(BaseAgent):
           
     def getTMParamSetMngr(self):
         return self.__paramSetMngr
+    
+    def paramServiceIsConnected(self):
+        return self._isConnected    

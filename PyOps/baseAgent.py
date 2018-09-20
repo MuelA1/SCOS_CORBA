@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Base class of agent classes
 
-BaseAgent -- describes basic operations used by other agent classes
+BaseAgent -- describes basic CORBA operations used by other agent classes
+
+@author: Axel Müller
 """
 
 import CORBA
@@ -14,13 +16,15 @@ class BaseAgent():
         self.__port = ''
         self._serverMngr = None               
         self.__orb = CORBA.ORB_init()
+        self._isConnected = False
         
     def connect(self, ip, port, namingService, serverMngrType):
         self.__ip = ip
         self.__port = port
         self._serverMngr = self.__orb.string_to_object(f'corbaname::{self.__ip}:{self.__port}/NameService#{namingService}')   
         self._serverMngr = self._serverMngr._narrow(serverMngrType)       
-      
+        self._isConnected = True
+       
     def createCorbaObject(self, mngrViewObject):
                 
         poa = self.__orb.resolve_initial_references('RootPOA')

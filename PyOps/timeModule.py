@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""" Module contains functions for time convertion (SCOS date and timestamp convertion)
+""" This module contains functions for time convertion (SCOS date and timestamp convertion)
 
+@author: Axel Müller
 """
 
 import datetime
@@ -39,7 +40,7 @@ def ibaseTime2date(ibaseTime):
 
     return dateString
 
-# Example: dateString = "2017-11-22 16:00:00:928"
+# Example: dateString: "2017-11-22 16:00:00:928"
 def date2ibaseTime(dateString):
     
     timeStruct = datetime.datetime.strptime(dateString, '%Y-%m-%d %H:%M:%S:%f')
@@ -50,7 +51,7 @@ def date2ibaseTime(dateString):
     
     return ibaseTime
     
-# Example: dateString = "2017.326.16.00.00.928"
+# Example: dateString: "2017.326.16.00.00.928"
 def scosDate2ibaseTime(dateString):    
     
     # datetime object

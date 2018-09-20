@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """ Access to SCOS-2000 TM Packet Data 
 
-TMPacketAgent -- describes access to telemetry packet services
+TMPacketAgent -- describes CORBA access to the external telemetry packet services
+
+@author: Axel Müller
 """
 
 from baseAgent import BaseAgent
@@ -49,4 +51,7 @@ class TMPacketAgent(BaseAgent):
               
     def getTimeMngr(self):
         return self.__timeMngr
+
+    def packetServiceIsConnected(self):
+        return self._isConnected
     

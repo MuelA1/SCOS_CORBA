@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""" Client side views to get callbacks from server
+""" Client side views to get callbacks from SCOS-2000
 
-CommandInjectMngrView -- describes a view object where callbacks from injection manager are sended
-View                  -- Base class of ParameterView and PacketView class, gives information about overflows on server side
-ParameterView         -- describes a view object where callbacks from telemetry parameter manager are sended
-PacketView            -- describes a view object where callbacks from telemetry packet manager are sended
+CommandInjectMngrView -- describes a CORBA view object where callbacks from command injection manager are sended
+View                  -- Base class of ParameterView and PacketView class, provides information about overflows on server side
+ParameterView         -- describes a CORBA view object where callbacks from telemetry parameter manager are sended
+PacketView            -- describes a CORBA view object where callbacks from telemetry packet manager are sended
+
+@author: Axel Müller
 """
 
 import ITC_INJ__POA, IBASE_IF__POA, ITM_PRO__POA, ITMP_PRO__POA
@@ -33,10 +35,10 @@ class View(IBASE_IF__POA.View):
         pass
     
     def notifyOverflow(self):
-        print("notifyOverflow: buffer overflow on the server side") 
+        print('notifyOverflow: buffer overflow on the server side') 
            
     def owNotifyOverflow(self):    
-        print("owNotifyOverflow: buffer overflow on the server side")
+        print('owNotifyOverflow: buffer overflow on the server side')
 
 class ParameterView(View, ITM_PRO__POA.ParameterView):
    
